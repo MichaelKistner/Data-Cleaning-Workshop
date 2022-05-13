@@ -1,0 +1,13 @@
+---
+title: "Project and Data Organization"
+author: "Dr. Michael Kistner"
+date: "May 16, 2022"
+output: html_notebook
+---
+
+Welcome!
+
+```{r}
+library(tidyverse)
+```
+
