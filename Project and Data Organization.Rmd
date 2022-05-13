@@ -1,11 +1,24 @@
 ---
 title: "Project and Data Organization"
-author: "Dr. Michael Kistner"
+author: "Michael Kistner"
 date: "May 16, 2022"
 output: html_notebook
 ---
 
-Welcome!
+# Introduction 
+
+Welcome! This notebook is the first in a five part series on data cleaning using the **tidyverse**. The intended audience is a quantitative social science practitioner who has previously used R, but who wants to learn more about data cleaning and is less familiar (or unfamiliar) with the collection of packages known as the **tidyverse**. Packages in the **tidyverse** all share a similar syntax and coding philosophy, and are designed to work together nicely.^[Individual packages we'll encounter include **dplyr**, **readr**, **tidyr**, **ggplot2**, **stringr**, and **lubridate**] 
+
+The substantive focus of this short workshop is introducing a set of tools for data management, cleaning, manipulation, and exploration using R and the **tidyverse**. When thinking about the broader research process for a quantitative empirical project, an extremely simplified model of the process might be:
+
+$$\textrm{Develop Question} \rightarrow \textrm{Collect Data} \rightarrow \textrm{Clean and Manipulate Data} \rightarrow \textrm{Analyze Data} \rightarrow \textrm{Share Findings} $$ 
+
+In a typical graduate program, students might cover steps 1 and 2 in a research design course, learn step 4 in their methods classes, and get practice at step 5 via seminar papers, writing a prospectus, and presenting research in a workshop. It's less typical for students to get formal training in step 3. While there is more material than we'll have time to cover in this workshop alone, we'll introduce a set of powerful tools for commonly encountered situations in computational social science. As we go, I'll share resources that will allow students to dive deeper into these topics.       
+Before we go any further, let's take a moment to familiarize ourselves with what's going on in the RStudio application. R is a language 
+
+RStudio displays four different panes when you're working with code. The top left pane, where you're probably reading this, is known as the Source pane. If you're working on a notebook (like this document) or a script, it will appear here. You can also view datasets you're working with in this pane. The bottom left pane is the Console, where you can run lines of code directly, although you can run code from a notebook or script as well. The top right pane shows the Environment. When you load data or create objects, their names and details will appear in this pane. Finally, the bottom left pane shows the File directory. You can load data or open a notebook from here, for example. It's also where Help will appear if you ask R to explain how a function or command works. 
+
+As I mentioned before, this document is an *R Markdown Notebook*. There are two main types of documents we'll work with in this class. The first is what's known as an *R Script*. An R script contains nothing but code and short comments about what the code is doing. In contrast, a notebook contains a combination of text, like what you're reading now, and chunks of code that accomplish specific tasks. You can add all sorts of formatting to make everything look neat, and you can compile the text, code, and output into a readable document like a PDF. 
 
 ```{r}
 library(tidyverse)

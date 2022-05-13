@@ -9,7 +9,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
 
 
-<meta name="author" content="Dr. Michael Kistner" />
+<meta name="author" content="Michael Kistner" />
 
 <meta name="date" content="2022-05-16" />
 
@@ -1765,14 +1765,64 @@ pre code {
 
 
 <h1 class="title toc-ignore">Project and Data Organization</h1>
-<h4 class="author">Dr. Michael Kistner</h4>
+<h4 class="author">Michael Kistner</h4>
 <h4 class="date">May 16, 2022</h4>
 
 </div>
 
 
 <!-- rnb-text-begin -->
-<p>Welcome!</p>
+<div id="introduction" class="section level1">
+<h1>Introduction</h1>
+<p>Welcome! This notebook is the first in a five part series on data
+cleaning using the <strong>tidyverse</strong>. The intended audience is
+a quantitative social science practitioner who has previously used R,
+but who wants to learn more about data cleaning and is less familiar (or
+unfamiliar) with the collection of packages known as the
+<strong>tidyverse</strong>. Packages in the <strong>tidyverse</strong>
+all share a similar syntax and coding philosophy, and are designed to
+work together nicely.<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a></p>
+<p>The substantive focus of this short workshop is introducing a set of
+tools for data management, cleaning, manipulation, and exploration using
+R and the <strong>tidyverse</strong>. When thinking about the broader
+research process for a quantitative empirical project, an extremely
+simplified model of the process might be:</p>
+<p><span class="math display">\[\textrm{Develop Question} \rightarrow
+\textrm{Collect Data} \rightarrow \textrm{Clean and Manipulate Data}
+\rightarrow \textrm{Analyze Data} \rightarrow \textrm{Share Findings}
+\]</span></p>
+<p>In a typical graduate program, students might cover steps 1 and 2 in
+a research design course, learn step 4 in their methods classes, and get
+practice at step 5 via seminar papers, writing a prospectus, and
+presenting research in a workshop. It’s less typical for students to get
+formal training in step 3. While there is more material than we’ll have
+time to cover in this workshop alone, we’ll introduce a set of powerful
+tools for commonly encountered situations in computational social
+science. As we go, I’ll share resources that will allow students to dive
+deeper into these topics.<br />
+Before we go any further, let’s take a moment to familiarize ourselves
+with what’s going on in the RStudio application. R is a language</p>
+<p>RStudio displays four different panes when you’re working with code.
+The top left pane, where you’re probably reading this, is known as the
+Source pane. If you’re working on a notebook (like this document) or a
+script, it will appear here. You can also view datasets you’re working
+with in this pane. The bottom left pane is the Console, where you can
+run lines of code directly, although you can run code from a notebook or
+script as well. The top right pane shows the Environment. When you load
+data or create objects, their names and details will appear in this
+pane. Finally, the bottom left pane shows the File directory. You can
+load data or open a notebook from here, for example. It’s also where
+Help will appear if you ask R to explain how a function or command
+works.</p>
+<p>As I mentioned before, this document is an <em>R Markdown
+Notebook</em>. There are two main types of documents we’ll work with in
+this class. The first is what’s known as an <em>R Script</em>. An R
+script contains nothing but code and short comments about what the code
+is doing. In contrast, a notebook contains a combination of text, like
+what you’re reading now, and chunks of code that accomplish specific
+tasks. You can add all sorts of formatting to make everything look neat,
+and you can compile the text, code, and output into a readable document
+like a PDF.</p>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
 <!-- rnb-source-begin eyJkYXRhIjoiYGBgclxubGlicmFyeSh0aWR5dmVyc2UpXG5gYGAifQ== -->
@@ -1781,8 +1831,18 @@ pre code {
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
 <!-- rnb-text-end -->
+</div>
+<div class="footnotes footnotes-end-of-document">
+<hr />
+<ol>
+<li id="fn1"><p>Individual packages we’ll encounter include
+<strong>dplyr</strong>, <strong>readr</strong>, <strong>tidyr</strong>,
+<strong>ggplot2</strong>, <strong>stringr</strong>, and
+<strong>lubridate</strong><a href="#fnref1" class="footnote-back">↩︎</a></p></li>
+</ol>
+</div>
 
-<div id="rmd-source-code">LS0tCnRpdGxlOiAiUHJvamVjdCBhbmQgRGF0YSBPcmdhbml6YXRpb24iCmF1dGhvcjogIkRyLiBNaWNoYWVsIEtpc3RuZXIiCmRhdGU6ICJNYXkgMTYsIDIwMjIiCm91dHB1dDogaHRtbF9ub3RlYm9vawotLS0KCldlbGNvbWUhCgpgYGB7cn0KbGlicmFyeSh0aWR5dmVyc2UpCmBgYAoK</div>
+<div id="rmd-source-code">LS0tCnRpdGxlOiAiUHJvamVjdCBhbmQgRGF0YSBPcmdhbml6YXRpb24iCmF1dGhvcjogIk1pY2hhZWwgS2lzdG5lciIKZGF0ZTogIk1heSAxNiwgMjAyMiIKb3V0cHV0OiBodG1sX25vdGVib29rCi0tLQoKIyBJbnRyb2R1Y3Rpb24gCgpXZWxjb21lISBUaGlzIG5vdGVib29rIGlzIHRoZSBmaXJzdCBpbiBhIGZpdmUgcGFydCBzZXJpZXMgb24gZGF0YSBjbGVhbmluZyB1c2luZyB0aGUgKip0aWR5dmVyc2UqKi4gVGhlIGludGVuZGVkIGF1ZGllbmNlIGlzIGEgcXVhbnRpdGF0aXZlIHNvY2lhbCBzY2llbmNlIHByYWN0aXRpb25lciB3aG8gaGFzIHByZXZpb3VzbHkgdXNlZCBSLCBidXQgd2hvIHdhbnRzIHRvIGxlYXJuIG1vcmUgYWJvdXQgZGF0YSBjbGVhbmluZyBhbmQgaXMgbGVzcyBmYW1pbGlhciAob3IgdW5mYW1pbGlhcikgd2l0aCB0aGUgY29sbGVjdGlvbiBvZiBwYWNrYWdlcyBrbm93biBhcyB0aGUgKip0aWR5dmVyc2UqKi4gUGFja2FnZXMgaW4gdGhlICoqdGlkeXZlcnNlKiogYWxsIHNoYXJlIGEgc2ltaWxhciBzeW50YXggYW5kIGNvZGluZyBwaGlsb3NvcGh5LCBhbmQgYXJlIGRlc2lnbmVkIHRvIHdvcmsgdG9nZXRoZXIgbmljZWx5Ll5bSW5kaXZpZHVhbCBwYWNrYWdlcyB3ZSdsbCBlbmNvdW50ZXIgaW5jbHVkZSAqKmRwbHlyKiosICoqcmVhZHIqKiwgKip0aWR5cioqLCAqKmdncGxvdDIqKiwgKipzdHJpbmdyKiosIGFuZCAqKmx1YnJpZGF0ZSoqXSAKClRoZSBzdWJzdGFudGl2ZSBmb2N1cyBvZiB0aGlzIHNob3J0IHdvcmtzaG9wIGlzIGludHJvZHVjaW5nIGEgc2V0IG9mIHRvb2xzIGZvciBkYXRhIG1hbmFnZW1lbnQsIGNsZWFuaW5nLCBtYW5pcHVsYXRpb24sIGFuZCBleHBsb3JhdGlvbiB1c2luZyBSIGFuZCB0aGUgKip0aWR5dmVyc2UqKi4gV2hlbiB0aGlua2luZyBhYm91dCB0aGUgYnJvYWRlciByZXNlYXJjaCBwcm9jZXNzIGZvciBhIHF1YW50aXRhdGl2ZSBlbXBpcmljYWwgcHJvamVjdCwgYW4gZXh0cmVtZWx5IHNpbXBsaWZpZWQgbW9kZWwgb2YgdGhlIHByb2Nlc3MgbWlnaHQgYmU6CgokJFx0ZXh0cm17RGV2ZWxvcCBRdWVzdGlvbn0gXHJpZ2h0YXJyb3cgXHRleHRybXtDb2xsZWN0IERhdGF9IFxyaWdodGFycm93IFx0ZXh0cm17Q2xlYW4gYW5kIE1hbmlwdWxhdGUgRGF0YX0gXHJpZ2h0YXJyb3cgXHRleHRybXtBbmFseXplIERhdGF9IFxyaWdodGFycm93IFx0ZXh0cm17U2hhcmUgRmluZGluZ3N9ICQkIAoKSW4gYSB0eXBpY2FsIGdyYWR1YXRlIHByb2dyYW0sIHN0dWRlbnRzIG1pZ2h0IGNvdmVyIHN0ZXBzIDEgYW5kIDIgaW4gYSByZXNlYXJjaCBkZXNpZ24gY291cnNlLCBsZWFybiBzdGVwIDQgaW4gdGhlaXIgbWV0aG9kcyBjbGFzc2VzLCBhbmQgZ2V0IHByYWN0aWNlIGF0IHN0ZXAgNSB2aWEgc2VtaW5hciBwYXBlcnMsIHdyaXRpbmcgYSBwcm9zcGVjdHVzLCBhbmQgcHJlc2VudGluZyByZXNlYXJjaCBpbiBhIHdvcmtzaG9wLiBJdCdzIGxlc3MgdHlwaWNhbCBmb3Igc3R1ZGVudHMgdG8gZ2V0IGZvcm1hbCB0cmFpbmluZyBpbiBzdGVwIDMuIFdoaWxlIHRoZXJlIGlzIG1vcmUgbWF0ZXJpYWwgdGhhbiB3ZSdsbCBoYXZlIHRpbWUgdG8gY292ZXIgaW4gdGhpcyB3b3Jrc2hvcCBhbG9uZSwgd2UnbGwgaW50cm9kdWNlIGEgc2V0IG9mIHBvd2VyZnVsIHRvb2xzIGZvciBjb21tb25seSBlbmNvdW50ZXJlZCBzaXR1YXRpb25zIGluIGNvbXB1dGF0aW9uYWwgc29jaWFsIHNjaWVuY2UuIEFzIHdlIGdvLCBJJ2xsIHNoYXJlIHJlc291cmNlcyB0aGF0IHdpbGwgYWxsb3cgc3R1ZGVudHMgdG8gZGl2ZSBkZWVwZXIgaW50byB0aGVzZSB0b3BpY3MuICAgICAgIApCZWZvcmUgd2UgZ28gYW55IGZ1cnRoZXIsIGxldCdzIHRha2UgYSBtb21lbnQgdG8gZmFtaWxpYXJpemUgb3Vyc2VsdmVzIHdpdGggd2hhdCdzIGdvaW5nIG9uIGluIHRoZSBSU3R1ZGlvIGFwcGxpY2F0aW9uLiBSIGlzIGEgbGFuZ3VhZ2UgCgpSU3R1ZGlvIGRpc3BsYXlzIGZvdXIgZGlmZmVyZW50IHBhbmVzIHdoZW4geW91J3JlIHdvcmtpbmcgd2l0aCBjb2RlLiBUaGUgdG9wIGxlZnQgcGFuZSwgd2hlcmUgeW91J3JlIHByb2JhYmx5IHJlYWRpbmcgdGhpcywgaXMga25vd24gYXMgdGhlIFNvdXJjZSBwYW5lLiBJZiB5b3UncmUgd29ya2luZyBvbiBhIG5vdGVib29rIChsaWtlIHRoaXMgZG9jdW1lbnQpIG9yIGEgc2NyaXB0LCBpdCB3aWxsIGFwcGVhciBoZXJlLiBZb3UgY2FuIGFsc28gdmlldyBkYXRhc2V0cyB5b3UncmUgd29ya2luZyB3aXRoIGluIHRoaXMgcGFuZS4gVGhlIGJvdHRvbSBsZWZ0IHBhbmUgaXMgdGhlIENvbnNvbGUsIHdoZXJlIHlvdSBjYW4gcnVuIGxpbmVzIG9mIGNvZGUgZGlyZWN0bHksIGFsdGhvdWdoIHlvdSBjYW4gcnVuIGNvZGUgZnJvbSBhIG5vdGVib29rIG9yIHNjcmlwdCBhcyB3ZWxsLiBUaGUgdG9wIHJpZ2h0IHBhbmUgc2hvd3MgdGhlIEVudmlyb25tZW50LiBXaGVuIHlvdSBsb2FkIGRhdGEgb3IgY3JlYXRlIG9iamVjdHMsIHRoZWlyIG5hbWVzIGFuZCBkZXRhaWxzIHdpbGwgYXBwZWFyIGluIHRoaXMgcGFuZS4gRmluYWxseSwgdGhlIGJvdHRvbSBsZWZ0IHBhbmUgc2hvd3MgdGhlIEZpbGUgZGlyZWN0b3J5LiBZb3UgY2FuIGxvYWQgZGF0YSBvciBvcGVuIGEgbm90ZWJvb2sgZnJvbSBoZXJlLCBmb3IgZXhhbXBsZS4gSXQncyBhbHNvIHdoZXJlIEhlbHAgd2lsbCBhcHBlYXIgaWYgeW91IGFzayBSIHRvIGV4cGxhaW4gaG93IGEgZnVuY3Rpb24gb3IgY29tbWFuZCB3b3Jrcy4gCgpBcyBJIG1lbnRpb25lZCBiZWZvcmUsIHRoaXMgZG9jdW1lbnQgaXMgYW4gKlIgTWFya2Rvd24gTm90ZWJvb2sqLiBUaGVyZSBhcmUgdHdvIG1haW4gdHlwZXMgb2YgZG9jdW1lbnRzIHdlJ2xsIHdvcmsgd2l0aCBpbiB0aGlzIGNsYXNzLiBUaGUgZmlyc3QgaXMgd2hhdCdzIGtub3duIGFzIGFuICpSIFNjcmlwdCouIEFuIFIgc2NyaXB0IGNvbnRhaW5zIG5vdGhpbmcgYnV0IGNvZGUgYW5kIHNob3J0IGNvbW1lbnRzIGFib3V0IHdoYXQgdGhlIGNvZGUgaXMgZG9pbmcuIEluIGNvbnRyYXN0LCBhIG5vdGVib29rIGNvbnRhaW5zIGEgY29tYmluYXRpb24gb2YgdGV4dCwgbGlrZSB3aGF0IHlvdSdyZSByZWFkaW5nIG5vdywgYW5kIGNodW5rcyBvZiBjb2RlIHRoYXQgYWNjb21wbGlzaCBzcGVjaWZpYyB0YXNrcy4gWW91IGNhbiBhZGQgYWxsIHNvcnRzIG9mIGZvcm1hdHRpbmcgdG8gbWFrZSBldmVyeXRoaW5nIGxvb2sgbmVhdCwgYW5kIHlvdSBjYW4gY29tcGlsZSB0aGUgdGV4dCwgY29kZSwgYW5kIG91dHB1dCBpbnRvIGEgcmVhZGFibGUgZG9jdW1lbnQgbGlrZSBhIFBERi4gCgpgYGB7cn0KbGlicmFyeSh0aWR5dmVyc2UpCmBgYAoK</div>
 
 
 
