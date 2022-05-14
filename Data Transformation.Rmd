@@ -1,0 +1,116 @@
+---
+title: "Data Transformation"
+author: "Michael Kistner"
+date: "May 16, 2022"
+output: 
+  html_document:
+    toc: true
+---
+
+# Introduction
+
+As mentioned in the last notebook, **Tidyverse** packages are all designed to share a common syntax and work together seamlessly. One of the most important elements that makes this true is the combination of the **dataframe-first argument ordering** and the **pipe**, which comes from the **magrittr** package. What does this mean and why does it matter? Let's take a look. 
+
+```{r}
+library(tidyverse)
+```
+
+# Using the pipe
+
+We'll begin by loading a dataset downloaded from the [Federal Elections Committee website](https://www.fec.gov/campaign-finance-data/current-campaigns-house-and-senate-file-description/) with campaign finance data for every candidate that ran for Congress in 2020. the dataset contains such information as what party the candidate ran as, whether they were an incumbent, challenger, or open seat candidate, the amount they raised from various types of donors, the amount they spent, etc. 
+
+To load the data, we use the `read_delim()` command from the **readr** package, which is a generalized version of **read_csv()** or **read_tsv()**. We need a few extra arguments here. First, the FEC data is separed with the vertical line |, so we have to specify that that's our delimiter. Second, there are no column names provided for the data. We have to tell **read_delim()** this, otherwise it will assume the first row of data is actually the column names. Third, there are some extra white spaces included in the data after some column values, so we tell the function to trim these white spaces. Finally, quotation marks are entered as single quotation marks rather than double in the data, so we tell the function that it does not need to escape double quotation marks.
+
+```{r}
+cands <- read_delim("Data/FEC Data/webl20.txt",
+                    delim = "|",
+                    col_names = FALSE, 
+                    trim_ws = TRUE,
+                    escape_double = FALSE)
+```
+
+The data is loaded, but it's not very useful. None of the variable names are informative, which makes it hard to accomplish anything without constantly trying to figure out which variable is which. 
+
+Suppose we wanted to accomplish the following. We want to give the variables descriptive names, then, using those names, select the variable representing incumbency status and see how many of the candidates in the dataset are incumbents vs. challengers vs. open seat candidates. We could accomplish this using just the base R commands `setNames()` and `table()`, as follows:^[The names of the specific variables can be found by clicking on the URL above to get to the FEC website.]
+
+```{r}
+cands_with_varnames <- setNames(cands,
+                  c("cand_id", "name", "incumbency_status", "party_code",
+                    "party_affil", "total_receipts", "transfers_from_cmte",
+                    "disbursements", "transfers_to_cmte", "beginning_cash",
+                    "ending_cash", "cand_contributions", "cand_loans",
+                    "other_loans", "cand_loan_repayments", "other_loan_repayments",
+                    "debts_owed", "indiv_contributions", "office_state",
+                    "district", "spec_election", "prim_election", "runoff_election",
+                    "general_election", "general_election_pct", "cmte_contributions",
+                    "party_contributions", "coverage_end", "individ_refunds",
+                    "cmte_refunds"))
+
+table(cands_with_varnames$incumbency_status)
+```
+As we can see, the large majority of observations in the data are candidates challenging an incumbent. The code above accomplishes that, but has some undesirable qualities. First, the code is too split up. To accomplish one multi-part task, we have two unconnected chunks of code. Second, the code isn't split up enough. In the last section, we're selecting a specific variable and creating a table out of it all in one line. And things get even messier if we need to do more manipulation. For example, suppose we only wanted to consider Democratic and Republican candidates. Then that last line becomes:
+
+```{r}
+table(cands_with_varnames$incumbency_status[cands_with_varnames$party_affil == "REP" | 
+                                              cands_with_varnames$party_affil == "DEM"])
+```
+
+That's one mess of a line, trying to accomplish a lot simultaneously with dollar signs and brackets everywhere. If this were a cheesy pitch on Shark Tank, this is where you'd exclaim "There's got to be a better way!"
+
+Of course -- there is! The solution is the pipe, written as `%>%`. The pipe's function is very simple. It tells R to take whatever was produced on *this* line and use it as the first argument of whatever command is used on the *next* line. For example, let's use the pipe to connect the various pieces of the analysis above. We'll also use the **dplyr** command `pull()`, which takes a dataframe and a variable name and returns just that specific variable. We begin with the name of the original dataframe, and then 
+
+```{r}
+cands %>%
+  setNames(c("cand_id", "name", "incumbency_status", "party_code",
+             "party_affil", "total_receipts", "transfers_from_cmte",
+              "disbursements", "transfers_to_cmte", "beginning_cash",
+              "ending_cash", "cand_contributions", "cand_loans",
+              "other_loans", "cand_loan_repayments", "other_loan_repayments",
+              "debts_owed", "indiv_contributions", "office_state",
+              "district", "spec_election", "prim_election", "runoff_election",
+              "general_election", "general_election_pct", "cmte_contributions",
+              "party_contributions", "coverage_end", "individ_refunds",
+              "cmte_refunds")) %>%
+  pull(incumbency_status) %>%
+  table()
+```
+Observe that, when written this way, the entire operation is accomplished in one, seamlessly flowing section of code, but each "line" (each section separated by the pipe) accomplishes one specific task. As a result, the code is rather simple to read. Start with the data, change with operation 1, change with operation 2, end with result. 
+
+# dplyr verb #1: filter()  
+
+What makes this even more powerful is the fact that virtually all operations in **dplyr** and other **tidyverse** packages are all designed so that 1) they take as their first argument the name of a preexisting dataframe, and 2) they produce as an output a modified dataframe. To see an example, let's return to our desire to limit the analysis to just Republicans and Democrats. Let's introduce our first fundamental **dplyr** verb, `filter()`. The filter command returns only particular rows, according to the conditional statements you give it. In other words, it allows you to restrict an operation or analysis to just a portion of your data, instead of all of it. 
+
+Thus to accomplish the above but examine only major party candidates, we would do the following:
+
+```{r}
+cands %>%
+  setNames(c("cand_id", "name", "incumbency_status", "party_code",
+             "party_affil", "total_receipts", "transfers_from_cmte",
+              "disbursements", "transfers_to_cmte", "beginning_cash",
+              "ending_cash", "cand_contributions", "cand_loans",
+              "other_loans", "cand_loan_repayments", "other_loan_repayments",
+              "debts_owed", "indiv_contributions", "office_state",
+              "district", "spec_election", "prim_election", "runoff_election",
+              "general_election", "general_election_pct", "cmte_contributions",
+              "party_contributions", "coverage_end", "individ_refunds",
+              "cmte_refunds")) %>%
+  filter(party_affil == "DEM" | party_affil == "REP") %>%
+  pull(incumbency_status) %>%
+  table()
+```
+
+In the middle of the pipeline, we added the command $\texttt{filter(party_affil == "DEM" | party_affil == "REP")}$. The first argument to that `filter()` command is the dataframe with the variable names added, which was passed to it by the pipe above. The second argument was the conditional statement saying which rows we wanted -- all those in which `party_affil` was either "DEM" or "REP". It then returned a subset of the original data, which was then passed to the `pull()` and `table()` commands.
+
+To summarize, most **dplyr** commands take the following form:
+
+$$\textrm{command(df, arg1, arg2}, \cdots)$$
+which produces a modified version of the dataframe which can then be used as the first argument in the next line using the pipe %>%.
+
+# dplyr verbs #2 and #3: select() and arrange()
+
+# dplyr verb #4: mutate()
+
+# dplyr verb #5: summarize()
+
+
+
