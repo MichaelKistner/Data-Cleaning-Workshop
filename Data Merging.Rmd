@@ -47,7 +47,7 @@ With data this small, we could manually enter data from `df_b` into `df_a`, but 
 
 An important concept for all `_join()` commands is the idea of a **key**. A **key** variable identifies observations in each dataset. For example, in our dataframes, we could use `LastName` as the key variable to link observations across the two dataframes and combine them. 
 
-There are some important details to know about using keys for merging. First, computers are literal machines. Keys have to match *exactly*. Spelling errors, different formatting, lower case vs. upper case -- any of these will result in the data with the non-matching keys not being merged. Second, if a single variable doesn't uniquely identify observations, multiple variables can be used. We'll come back to this later.
+There are some important details to know about using keys for merging. First, computers are literal machines. Keys have to match *exactly*. Spelling errors, different formatting, lower case vs. upper case -- any of these will result in the data with the non-matching keys not being merged. Second, not just the values of the key variable but the names of the key variable should be the same in each dataset. We need to tell the `_join()` commands what the name of the key variable is, and it should match in both dataframes.^[There actually is a way to get around this in the optional arguments of the `_join()` commands, but I find that it's usually easier to just make sure key variable names are identical before attempting to merge.] Third, if a single variable doesn't uniquely identify observations, multiple variables can be used. We'll come back to this last point in a bit.
 
 Let's begin with the simplest version of the `_join()` commands, the `inner_join()`. An `inner_join()` merges two dataframes -- every column from dataframe A, and every column from dataframe B -- keeping only rows where there's a match between the key in dataframe A and dataframe B. This last fact is what makes the join and *inner* join. In set theoretic terms, it's the intersection of the two dataframes. Let's try combining our dataframes with an `inner_join()`.
 
@@ -69,7 +69,15 @@ inner_join(df_a, df_b, by = "LastName")
 ```
 Now that the name matches, the merge works as expected. 
 
+Rarely in practice do we (or should we) use `inner_join()`, however. The tendency for `inner_join()` to throw away data when an exact match in the key variable isn't found means that we're likely to get rid of data unknowningly. When datasets are large, it will be difficult to catch issues caused by minor spelling discrepancies, such as the above. An alternative is `full_join()`, which returns all rows from both Dataframe A and Dataframe B regardless of if there's a key match or not.^[Again, in set theoretic terms this would be the union of the two dataframes.] In the case that there isn't, the variables from the dataframe with the missing key match will be returned as NA. For our example, it would look something like this:
 
+```{r}
+full_join(df_a, df_b, by = "LastName")
+```
+
+In this example, we now know that observations for Adam Schiff and Matt Gaetz are missing from Dataframe A. If we weren't expecting that, we can then investigate. 
+
+So far we've been able to merge on last name because it uniquely identifies observations in our data. However, what if we also had data on Rep. Sheila Jackson Lee in our original dataframe? Let's add a row for her to `df_a`.
 
 ```{r}
 df_a <- tibble(
@@ -78,23 +86,55 @@ df_a <- tibble(
   Party = c("D"),
   State = c("TX")
   ) %>%
-  bind_rows(df_a)
-
-
+  bind_rows(df_a, .)
 ```
+
+A quick sidenote -- we used a trick here in our pipeline. Notice the period . in `bind_rows()`? In a pipeline, if you want to feed the results above into an argument *other* than the first argument, you can put a period in the place you want the upstream results to be used. In this example, we wanted to use `bind_rows()` to combine our original dataframe with the new Sheila Jackson Lee row, and we wanted that new row we created to be placed after the original dataframe. We accomplished that by using the period after the name of the original dataframe to specify the order.
+
+With this modified dataframe in hand, what happens if we use our `full_join()` now? 
+
+```{r}
+full_join(df_a, df_b, by = "LastName")
+```
+
+Notice that the DW-NOMINATE value of -0.68 from Dataframe B has been assigned to both Barbara Lee as well as Sheila Jackson Lee, since the key variable LastName in Dataframe B matches both rows in dataframe A. Sometimes that might be what we want to happen. For example, imagine we had some data on survey respondents, where every row was an individual respondent. Suppose we wanted to merge information about their representative to this dataframe. There might be several respondents who all live in the same district, and, if our key is some form of district ID, we'd want to add on the same data about that representative to each row in the survey dataframe. 
+
+In this case though, we're assigning the same DW-NOMINATE score incorrectly to one of the two Lee's. Let's modify dataframe B by adding representative's first names as well, so we can distinguish between the two similarly named politicians. 
 
 ```{r}
 df_b <- tibble(
-  LastName = c("Schiff", "Pelosi", "Ocasio Cortez", 
-               "Lee", "Crenshaw", "McCarthy", "Gaetz"),
+  LastName = c("Schiff", "Pelosi", "Ocasio-Cortez", 
+               "Lee", "Crenshaw", "McCarthy", "Gaetz", "Lee"),
   FirstName = c("Adam", "Nancy", "Alexandria",
-                "Barbara", "Dan", "Kevin", "Matt"),
+                "Barbara", "Dan", "Kevin", "Matt", "Sheila Jackson"),
   DWNom_Dim1 = c(-0.35, -0.49, -0.25, -0.68,
-                 0.43, 0.46, 0.61))
+                 0.43, 0.46, 0.61, -0.46)
 )
 ```
 
+Let's try that merge again, only this time, we'll merge on two key variables -- last *and* first name.
 
+```{r}
+full_join(df_a, df_b, by = c("LastName", "FirstName"))
+```
+
+We now have the correct DW-NOMINATE score for Sheila Jackson Lee!
+
+For illustrative purposes, let's try that latter merge again, only this time, let's try merging only on last name again. What happens here?
+
+```{r}
+full_join(df_a, df_b, by = c("LastName"))
+```
+
+Two issues are quickly apparent. First, we have a `FirstName.x` and a `FirstName.y` column. Since `FirstName` is no longer a key variable, R assumes we want to add on each of these columns as data from each of the original dataframes. Since we can't have two columns with the same name in the same dataframe, R appends .x and .y to indicate which of the original dataframes each column comes from.
+
+Second, since we have two Lee's in each dataframe now, all possible combinations are returned. We have Sheila Jackson and Barbara matched with each of the two DW-NOMINATE scores, since either could be the one we want to match (without using first name). This illustrates the dangers of merging based off of anything besides a uniquely identifying ID variable if we want a 1 to 1 match, like we do in this example. Sometimes commonly analyzed types of data, such as members of Congress, have such an ID that is used across datasets. For example, the Inter-university Consortium for Political and Social Research (ICPSR) gives a [unique ID number](https://www.icpsr.umich.edu/web/ICPSR/series/156) to each member of Congress that many other data sources include, making merging much easier. In the absence of such an ID, merges should be done with caution and results checked carefully. 
+
+Finally, I want to discuss one last type of join that I find myself using for 90% or more of the merges I do in my work: the `left_join()` command. `left_join` works similarly to `inner_join` and `full_join`, only it keeps  all observations in Dataframe A, while returning only observations in Dataframe B with a key match in Dataframe B. This comes in very handy when you have a primary dataset (Dataframe A) for which you want to add one or a few variables from Dataframe B. With a `left_join()`, you're guaranteed not to lose any observations from Dataframe A, but will not get any additional observations from Dataframe B if there are many more than you actually care about.
+
+The figure below displays a useful way of visualizing which observations each of these merging joins keeps.^[The `right_join()` command is identical to the `left_join()` command, all that differs is the positioning of the dataframes.] Don't forget, however, that with merging it's not just about which observations are kept and which are discarded, but what happens when there are duplicate matches. A good rule of thumb: prior to merging data, either 1) verify that the key variable uniquely identifies observations and there are no duplicates, 2) determine how many rows and columns you expect there to be after merging, and verify that you do indeed end up with that many rows and columns, or 3) do both. 
+
+![A diagram for remembering join commands](Images/join-venn.png){width=80%}
 
 # Filtering joins
 
