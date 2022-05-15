@@ -1,0 +1,28 @@
+---
+title: "Working with Text and Dates"
+author: "Michael Kistner"
+date: "May 16, 2022"
+output: 
+  html_document:
+    toc: true
+---
+
+```{r echo=FALSE}
+options(scipen = 999)
+```
+
+# Introduction
+
+As before, let's load the **tidyverse** package and get started.
+
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+```
+
+# Text
+
+```{r}
+load("Data/House Tweets.Rda")
+```
+
+
