@@ -1,0 +1,26 @@
+---
+title: "Data Transformation"
+author: "Michael Kistner"
+date: "May 16, 2022"
+output: 
+  html_document:
+    toc: true
+---
+
+```{r echo=FALSE}
+options(scipen = 999)
+```
+
+# Introduction
+
+
+In case it's not already loaded, let's load the **tidyverse** package and dive in.
+
+```{r}
+library(tidyverse)
+```
+
+# Test
+
+
+
