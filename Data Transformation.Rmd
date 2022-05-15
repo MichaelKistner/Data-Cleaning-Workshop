@@ -1,0 +1,310 @@
+---
+title: "Data Transformation"
+author: "Michael Kistner"
+date: "May 16, 2022"
+output: 
+  html_document:
+    toc: true
+---
+
+```{r echo=FALSE}
+options(scipen = 999)
+```
+
+# Introduction
+
+In this notebook, we dive more deeply into coding examples. The focus of this notebook is on *data transformation* of various sorts -- choosing the columns and rows we want to analyze, creating and changing variables, summarizing our data by group, and similar tasks. The commands in this chapter largely come from the **dplyr** package. Specifically, we'll consider five workhorse commands, or verbs, from **dplyr**: `filter()`, `select()`, `arrange()`, `mutate()`, and `summarize()`. We'll also learn about using the **pipe**, which will help us write clean, easy to read code, as well as using the `group_by()` command, a command that does nothing on its own but is powerful when used with other **dplyr** commands such as `summarize()` and `mutate()`.
+
+In case it's not already loaded, let's load the **tidyverse** package and dive in.
+
+```{r}
+library(tidyverse)
+```
+
+# Using the pipe
+
+As mentioned in the last notebook, **Tidyverse** packages are all designed to share a common syntax and work together seamlessly. One of the most important elements that makes this true is the combination of the **dataframe-first argument ordering** and the **pipe**, which comes from the **magrittr** package. What does this mean and why does it matter? Let's take a look. 
+
+We'll begin by loading a dataset downloaded from the [Federal Elections Committee website](https://www.fec.gov/campaign-finance-data/current-campaigns-house-and-senate-file-description/) with campaign finance data for every candidate that ran for Congress or President in 2020. The dataset contains such information as what party the candidate ran as, whether they were an incumbent, challenger, or open seat candidate, the amount they raised from various types of donors, the amount they spent, etc. 
+
+To load the data, we use the `read_delim()` command from the **readr** package, which is a generalized version of **read_csv()** or **read_tsv()**. We need a few extra arguments here. First, the FEC data is separed with the vertical line |, so we have to specify that that's our delimiter. Second, there are no column names provided for the data. We have to tell **read_delim()** this, otherwise it will assume the first row of data is actually the column names. Third, there are some extra white spaces included in the data after some column values, so we tell the function to trim these white spaces. Finally, quotation marks are entered as single quotation marks rather than double in the data, so we tell the function that it does not need to escape double quotation marks.
+
+```{r}
+cands <- read_delim("Data/webl20.txt",
+                    delim = "|",
+                    col_names = FALSE, 
+                    trim_ws = TRUE,
+                    escape_double = FALSE)
+```
+
+The data is loaded, but it's not very useful. None of the variable names are informative, which makes it hard to accomplish anything without constantly trying to figure out which variable is which. 
+
+Suppose we wanted to accomplish the following. We want to give the variables descriptive names, then, using those names, select the variable representing incumbency status and see how many of the candidates in the dataset are incumbents vs. challengers vs. open seat candidates. We could accomplish this using just the base R commands `setNames()` and `table()`, as follows:^[The names of the specific variables can be found by clicking on the URL above to get to the FEC website.]
+
+```{r}
+cands <- setNames(cands,
+                  c("cand_id", "name", "incumbency_status", "party_code",
+                    "party_affil", "total_receipts", "transfers_from_cmte",
+                    "disbursements", "transfers_to_cmte", "beginning_cash",
+                    "ending_cash", "cand_contributions", "cand_loans",
+                    "other_loans", "cand_loan_repayments", "other_loan_repayments",
+                    "debts_owed", "indiv_contributions", "office_state",
+                    "district", "spec_election", "prim_election", "runoff_election",
+                    "general_election", "general_election_pct", "cmte_contributions",
+                    "party_contributions", "coverage_end", "individ_refunds",
+                    "cmte_refunds"))
+
+table(cands$incumbency_status)
+```
+As we can see, the large majority of observations in the data are candidates challenging an incumbent. The code above accomplishes that, but has some undesirable qualities. First, the code is too split up. To accomplish one multi-part task, we have two unconnected chunks of code. Second, the code isn't split up enough. In the last section, we're selecting a specific variable and creating a table out of it all in one line. And things get even messier if we need to do more manipulation. For example, suppose we only wanted to consider Democratic and Republican candidates. Then that last line becomes:
+
+```{r}
+table(cands$incumbency_status[cands$party_affil == "REP" | cands$party_affil == "DEM"])
+```
+
+That's one mess of a line, trying to accomplish a lot simultaneously with dollar signs and brackets everywhere. If this were a cheesy pitch on Shark Tank, this is where you'd exclaim "There's got to be a better way!".
+
+There is, of course. The solution is the pipe, written as `%>%`. The pipe's function is very simple. It tells R to take whatever was produced on *this* line and use it as the first argument of whatever command is used on the *next* line. For example, let's use the pipe to connect the various pieces of the analysis above. We'll also use the **dplyr** command `pull()`, which takes a dataframe and a variable name and returns just that specific variable. We begin with the name of the original dataframe, and then 
+
+```{r}
+cands %>%
+  setNames(c("cand_id", "name", "incumbency_status", "party_code",
+             "party_affil", "total_receipts", "transfers_from_cmte",
+              "disbursements", "transfers_to_cmte", "beginning_cash",
+              "ending_cash", "cand_contributions", "cand_loans",
+              "other_loans", "cand_loan_repayments", "other_loan_repayments",
+              "debts_owed", "indiv_contributions", "office_state",
+              "district", "spec_election", "prim_election", "runoff_election",
+              "general_election", "general_election_pct", "cmte_contributions",
+              "party_contributions", "coverage_end", "individ_refunds",
+              "cmte_refunds")) %>%
+  pull(incumbency_status) %>%
+  table()
+```
+
+Observe that, when written this way, the entire operation is accomplished in one, seamlessly flowing section of code, but each "line" (each section separated by the pipe) accomplishes one specific task. As a result, the code is rather simple to read. Start with the data, change with operation 1, change with operation 2, end with result. 
+
+# dplyr verb #1: filter()  
+
+What makes this even more powerful is the fact that virtually all operations in **dplyr** and other **tidyverse** packages are designed so that 1) they take as their first argument the name of a preexisting dataframe, and 2) they produce as an output a modified dataframe. To see an example, let's return to our desire to limit the analysis to just Republicans and Democrats. Let's introduce our first fundamental **dplyr** verb, `filter()`. The filter command returns only particular rows, according to the conditional statements you give it. In other words, it allows you to restrict an operation or analysis to just a portion of your data, instead of all of it. 
+
+Thus to accomplish the above but examine only major party candidates, we would do the following:
+
+```{r}
+cands %>%
+  setNames(c("cand_id", "name", "incumbency_status", "party_code",
+             "party_affil", "total_receipts", "transfers_from_cmte",
+              "disbursements", "transfers_to_cmte", "beginning_cash",
+              "ending_cash", "cand_contributions", "cand_loans",
+              "other_loans", "cand_loan_repayments", "other_loan_repayments",
+              "debts_owed", "indiv_contributions", "office_state",
+              "district", "spec_election", "prim_election", "runoff_election",
+              "general_election", "general_election_pct", "cmte_contributions",
+              "party_contributions", "coverage_end", "individ_refunds",
+              "cmte_refunds")) %>%
+  filter(party_affil == "DEM" | party_affil == "REP") %>%
+  pull(incumbency_status) %>%
+  table()
+```
+
+In the middle of the pipeline, we added: `filter(party_affil == "DEM" | party_affil == "REP")`. The first argument to that `filter()` command is the dataframe with the variable names added, which was passed to it by the pipe above. The second argument was the conditional statement saying which rows we wanted -- all those in which `party_affil` was either "DEM" or "REP". It then returned a subset of the original data, which was then passed to the `pull()` and `table()` commands.
+
+Using `filter()` requires putting together logical tests using the familiar logical operators from base R -- `==`, `!=`, `<`, `>=`, etc., combined with `|` to link statements using OR (return rows where either A OR B are true) and `&` to link statements using AND (return rows where both A AND B are true).
+
+One useful trick is to use the `%in%` operator, which returns TRUE if any elements of a vector are contained in the original variable. For example, an alternative way to write the `filter()` command from above would be:
+
+```{r eval=FALSE}
+filter(party_affil %in% c("DEM", "REP"))
+```
+
+While this only makes the statement slightly more concise, as the number of possible options multiplies, this syntax becomes much more preferable.
+
+To summarize the broader point regarding **dplyr** verbs, most such commands take the following form:
+
+$$\textrm{command(df, arg1, arg2}, \cdots)$$
+which produces a modified version of the dataframe which can then be used as the first argument in the next line using the pipe %>%.
+
+# dplyr verbs #2 and #3: select() and arrange()
+
+The next two **dplyr** verbs allow you to restrict a dataframe to only the variables of interest and sort it in useful ways by different variables. The first verb is the `select()` command. The `select()` command allows you to, for lack of a better word, select the variables you want to keep and get rid of all the rest. Oftentimes datasets are large and contain hundreds or thousands of variables, and we only care about a small subset. For example, although the dataset contains variables describing election results (spec_election, prim_election, runoff_election, general_election, general_election_pct), the FEC stopped collecting these data in 2007. Thus these columns contain nothing but NAs indicating missing data. Let's get rid of these rather useless variables.   
+
+Similar to the other **dplyr** verbs, the first argument is the original dataframe, while the following arguments are the variables you wish to keep. For example, if we only wanted to keep the candidate name, party, incumbency status, and the total amount raised, we would use the following command:
+
+```{r}
+cands %>%
+  select(c(name, party_affil, incumbency_status, total_receipts))
+```
+Let's briefly look at `arrange()` command before going back to `filter()`. The `arrange()` command, unsurprisingly, allows us to arrange the rows of a dataframe according to the values of one or more variable. After putting in the dataframe as the first argument, the subsequent argument are the variables to arrange the dataframe by, with sorting occurring for the first variable first, then the second variable next, and so on. For example, if we wanted to display the dataframe from above according to the total amount raised, we could do the following:
+
+```{r}
+cands %>%
+  select(c(name, party_affil, incumbency_status, total_receipts)) %>%
+  arrange(total_receipts)
+```
+We now see a group of candidates who were...not prodigious fundraisers, let's say. By default, arrange goes from smallest to largest for numeric variables, and A to Z for string variables. To reverse that behavior, we just need to wrap the variable name ins `desc()` (for descending). Let's use that to examine the candidates who raised the most money, a more interesting set than the bunch who raised the least.
+
+```{r}
+cands %>%
+  select(c(name, party_affil, incumbency_status, total_receipts)) %>%
+  arrange(desc(total_receipts))
+```
+
+A list dominated (unsurprisingly) by the 2020 presidential candidates.
+
+If we wanted to exclude presidential and third-party candidates, and arrange first by party, then by amount raised, we could use the following code:
+
+```{r}
+cands %>%
+  filter(office_state != "00", party_affil %in% c("DEM", "REP")) %>%
+  select(c(name, party_affil, incumbency_status, total_receipts)) %>%
+  arrange(desc(party_affil), desc(total_receipts))
+```
+
+Let's return to `select()`. We've seen how to select columns we want to keep, but what if we want to *exclude* particular columns, the original goal we had in mind? Of course, we could just select all the variables we wanted to keep, but in our data, that's 25 columns out of 30, a bit tedious to write out. Once more -- there's got to be a better way! 
+
+Once again, the **tidyverse** doesn't fail us. If we put an exclamation mark in front of the vector of variable names when using `select()`, select returns all variables in the dataframe *except* those variables. So, to exclude the useless election variables, we could do the following:
+
+```{r}
+cands %>%
+  select(!c(spec_election, prim_election, runoff_election, 
+           general_election, general_election_pct))
+```
+Notice that the dataframe now contains 25 columns instead of 30. The undesired columns have been successfully excluded. 
+
+We can write even cleaner code than this, however. The `select()` command comes with built in **selection helpers** that allow you to select groups of variables.^[A complete description of each can be found [here](https://5be213bc2d4c4a47bbe1d441dc052c55.app.rstudio.cloud/help/library/dplyr/html/select.html).] We can take advantage of one here, the `contains()` helper, which allows us to specify a character string that all of the variables we care about have in common. For our example, we want to exclude all variables with "election" in the name, and keep all others. Using the `contains()` helper, this is accomplished as follows:
+
+```{r}
+cands %>%
+  select(!contains("election")) 
+```
+
+Helpers such as these are incredibly useful where dealing with large datasets with many, similarly named variables that we either want to include or exclude.
+
+# dplyr verb #4: mutate()
+
+The commands we've covered thus far have allowed us to keep or remove rows and columns and sort the dataframe as desired. But what if we want to add new variables to our dataframe? This is done using the `mutate()` command, which creates new variables out of existing variables. 
+
+The syntax for `mutate()` is both familiar -- given the verbs we've seen thus far -- and straightforward. After specifying the dataframe, each additional argument is the name of the new variable we want to create, followed by an expression written in terms of existing variables and other functions. For example, suppose we wanted to create a new variable that was the total amount of funds received, measured in 1,000s of dollars. We could use the following code:
+
+```{r}
+cands %>%
+  mutate(receipts_thousands = round(total_receipts / 1000)) %>%
+  select(c(name, party_affil, incumbency_status, receipts_thousands))
+```
+
+The result, as the table shows, is a bit more readable version of the original variable.
+
+New variables can be constructed from character variable as well as numeric variables. For instance, suppose we want a different encoding of the `party_affil` variable that groups all third party candidates into a single category. We could use a simple `ifelse()` command along with `mutate()` to accomplish this.
+
+```{r}
+cands %>%
+  mutate(receipts_thousands = round(total_receipts / 1000),
+         party_simplified = ifelse(!(party_affil %in% c("REP", "DEM", "IND")), 
+                                   "THIRD", party_affil)) %>%
+  filter(party_simplified == "THIRD") %>%
+  select(name, party_affil, party_simplified)
+```
+
+An alternative to `ifelse()` that comes in useful with more complicated recoding of character variables is the `case_when()` function. This allows us to specify a new variable flexibly based on values of one or more existing variables. For example, the above task could also be accomplished as follows:
+
+```{r eval=FALSE}
+mutate(party_simplified = case_when(
+  party_affil == "DEM" ~ "D",
+  party_affil == "REP" ~ "R",
+  party_affil == "IND" ~ "I",
+  TRUE ~ "T"
+  )
+)
+```
+
+One other trick that comes in handy -- just like `select()` can be used with selection helpers, you can mutate with selection helpers with the `mutate_at()` command. This is helpful when you want to repeat the same transformation for multiple variables. The syntax is slightly different. After specifying the dataframe as the first argument, the second argument is a vector of column names (possibly created using a selection helper) for the variables you want to mutate. The final argument is the function you want to apply to them. For example, we could create the following function^[There's actually a more compact way to accomplish this without defining an entire function we'll likely only use once in our code. This is by using an anonymous function, which works similar to a lambda function in Python. For more details on this approach, see post [here](https://lukesingham.com/anonymous-functions-in-r-python/).] to put a dollar amount into thousands of dollars and round it:
+
+```{r}
+rounded_thousands <- function(x) {
+  round(x / 1000)
+}
+```
+
+and then use it with `mutate_at()` as follows:
+
+```{r}
+cands %>%
+  mutate_at(c("indiv_contributions", "cmte_contributions", "party_contributions"),
+            rounded_thousands) %>%
+  select(indiv_contributions, cmte_contributions, party_contributions)
+```
+
+In the above code, we manually wrote out the variables we wanted to apply our function to. Alternatively we could use the `contains()` selection helper to apply this function to all variable names containing "contributions". Because we're using a selection helper outside of `select()`, we need to wrap it in `vars()` as below:
+
+```{r}
+cands %>%
+  mutate_at(vars(contains("contributions")),
+            rounded_thousands) %>%
+  select(indiv_contributions, cmte_contributions, party_contributions)
+```
+
+These are just a few examples of the many types of manipulations we can accomplish with `mutate()`. A couple things to remember. First, the output of `mutate()` (as with all of these fundamental **dplyr** verbs) is a dataframe. So even though we're creating a new variable, what mutate returns is the entire dataframe with the new variable included, not simply the new variable itself. Second, we have to use the assignment operator to save the new dataframe, either as a new version of the existing dataframe or an entirely new dataframe. None of the manipulations above were saved as we did not assign the output to anything. For example, to save the new coding of third party candidates, we would have to do the following:
+
+```{r}
+cands <- cands %>%
+  mutate(party_simplified = case_when(
+    party_affil == "DEM" ~ "D",
+    party_affil == "REP" ~ "R",
+    party_affil == "IND" ~ "I",
+    TRUE ~ "T"
+  )
+)
+```
+
+Now our cands dataframe has 31 variables instead of 30, as we now have the new  `party_simplified` variable saved. 
+
+# dplyr verb #5: summarize()
+
+The final **dplyr** verb we'll cover is `summarize()`, which only works when paired with another immensely useful command, `group_by()`. The `group_by` and `summarize` commands work in tandem as follows. If we want to apply a function, such as `mean()`, to multiple groups within our data, we first use the `group_by()` command where the first argument is (as usual) the name of the dataframe, and the following arguments are the variable or variables you want to group by. The `summarize()` command, after specifying the dataframe, then takes as argument the function or functions you want to apply, as well as the name of the new (grouped) variable. For instance, what if we wanted to see how much challengers, incumbents, and open seat House candidates raised on average? We could do so with the following code, which first excludes all presidential and Senate candidates:
+
+```{r}
+cands %>%
+  filter(district != "00") %>%
+  group_by(incumbency_status) %>%
+  summarize(average_raised = mean(total_receipts))
+```
+
+As you may know, incumbents vastly outraise challengers and open seat candidates, for a variety of reasons that we won't get into here. In this data, the average incumbent is raising over 5 times as much as non-incumbent candidates. 
+
+If we wanted to separate our results by party, we could add a second grouping variable to our `group_by()` command. For example:
+
+```{r}
+cands %>%
+  filter(district != "00") %>%
+  group_by(incumbency_status, party_simplified) %>%
+  summarize(average_raised = mean(total_receipts))
+```
+
+Or we could add more `summarize()` variables. Perhaps we want to compare the incumbency advantage for contributions from individuals versus political action committees, which are mostly corporate or trade PACs: 
+
+```{r}
+cands %>%
+  filter(district != "00") %>%
+  group_by(incumbency_status) %>%
+  summarize(average_individual = mean(indiv_contributions),
+            average_pac = mean(cmte_contributions))
+```
+
+As this reveals, while incumbent House candidates raise 4 to 5 times as much money from individual donors as non-incumbents, they raise 20 to 30 times as much money from PAC donors. 
+
+While `group_by()` can be used with `summarize()` to produce these summarized versions of the dataset, it can also be used with `mutate()` to produce a dataframe where the unit of observation is not changed, but a grouped summary is added as a new variable to each observation. Consider the following example. Suppose we wanted to create a variable indicating what percent of all money raised by their party any individual House member raised. For example, if candidate A raise \$500,000 dollars and House candidates in their party raised \$500,000,000 in total, then Candidate A raised 1% of their party's total. 
+
+To do so, we'll need to do the following. First, group our dataframe by party. Then, use `mutate()` along with `sum()` to calculate the total amount raised by each party. Third, calculate a `pct_raised` variable by taking the amount raised by each candidate and then dividing by the party total. This process can be implemented using the code below:
+
+```{r}
+cands %>%
+  filter(district != "00", party_simplified %in% c("D", "R")) %>%
+  group_by(party_affil) %>%
+  mutate(party_total = sum(total_receipts),
+         pct_raised = total_receipts / party_total) %>%
+  select(name, party_affil, total_receipts, party_total, pct_raised) %>%
+  arrange(desc(pct_raised))
+```
+
+Again, the number of options with `group_by()` and `summarize()`, or `mutate()`, are near endless. For a good summary (no pun intended) of commonly used commands, see the [chapter on data transformation](https://r4ds.had.co.nz/transform.html#grouped-summaries-with-summarise) in "R for Data Science". 
+

@@ -1,0 +1,102 @@
+---
+title: "Data Merging"
+author: "Michael Kistner"
+date: "May 16, 2022"
+output: 
+  html_document:
+    toc: true
+---
+
+```{r echo=FALSE}
+options(scipen = 999)
+```
+
+# Introduction
+
+
+
+```{r}
+library(tidyverse)
+```
+
+# 
+
+```{r}
+cands <- read_delim("Data/webl20.txt",
+                    delim = "|",
+                    col_names = FALSE, 
+                    trim_ws = TRUE,
+                    escape_double = FALSE) %>%
+  setNames(c("cand_id", "name", "incumbency_status", "party_code",
+             "party_affil", "total_receipts", "transfers_from_cmte",
+              "disbursements", "transfers_to_cmte", "beginning_cash",
+              "ending_cash", "cand_contributions", "cand_loans",
+              "other_loans", "cand_loan_repayments", "other_loan_repayments",
+              "debts_owed", "indiv_contributions", "office_state",
+              "district", "spec_election", "prim_election", "runoff_election",
+              "general_election", "general_election_pct", "cmte_contributions",
+              "party_contributions", "coverage_end", "individ_refunds",
+              "cmte_refunds"))
+```
+
+
+```{r}
+cmtes_cand_links <- read_delim("Data/ccl.txt",
+                  delim = "|", escape_double = FALSE,
+                  col_names = FALSE,
+                  trim_ws = TRUE) %>%
+  setNames(c("cand_id", "cand_election_yr",
+             "fec_election_year", "cmte_id",
+             "cmte_type", "cmte_designation", "linkage_id"))
+```
+```{r}
+contrib_files <- dir("Data/Contribution Files")
+
+# For each file, subset to contributions of interest and summarize into
+# PCC ID x Date dyad
+for(i in 1:length(contrib_files)){
+  # Specify file name
+  file_name <- paste("Data/Contribution Files/", 
+                     contrib_files[i], sep = "")
+
+  # Load and clean individual contribution file
+  contribs <- read_delim(file_name, delim = "|", escape_double = FALSE,
+                         col_names = FALSE, trim_ws = TRUE) %>%
+    setNames(c("cmte_id", "amndt_indicator", "report_type", "election_type",
+               "image_num", "transaction_type", "entity_type", "contributor",
+               "city", "state", "zip", "employer", "occupation",
+               "transaction_date", "transaction_amount", "other_id",
+               "transaction_id", "file_number", "memo_code", "memo_text",
+               "record_id")) # %>%
+    # mutate(transaction_date = as.Date(as.character(transaction_date),
+    #                                   format = "%m%d%Y"))
+
+  # Subset to only contributions to congressional candidates, and only realistic
+  # amounts
+  contribs <- filter(contribs,
+                     pcc_id %in% candidates$pcc_id,
+                     transaction_amount > 0, # NOTE: This may need to be 200.
+                     transaction_amount < 2900)
+
+  # Group data by contributor and date
+  contribs <- group_by(contribs, pcc_id, transaction_date) %>%
+    summarize(total_individual = sum(transaction_amount))
+
+  # If first file, save as contribution_df, else add to previously collected data
+  if(i == 1){
+    contribution_df <- contribs
+  } else {
+    contribution_df <- bind_rows(contribution_df, contribs) %>%
+      group_by(pcc_id, transaction_date) %>%
+      summarize(total_individual = sum(total_individual))
+  }
+
+  print(i)
+}
+```
+
+```{r}
+contribs <- fst::read_fst("Data/Incumbent Contributions.fst")
+```
+
+

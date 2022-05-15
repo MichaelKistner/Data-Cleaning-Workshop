@@ -1,0 +1,153 @@
+---
+title: "Project and Data Organization"
+author: "Michael Kistner"
+date: "May 16, 2022"
+output: 
+  html_document:
+    toc: true
+---
+
+# Introduction
+
+Welcome! This notebook is the first in a five part series on data cleaning using the **tidyverse**. The intended audience is a quantitative social science practitioner who has previously used R, but who wants to learn more about data cleaning and is less familiar (or unfamiliar) with the collection of packages known as the **tidyverse**. Packages in the **tidyverse** all share a similar syntax and coding philosophy, and are designed to work together nicely.[^1]
+
+[^1]: Individual packages we'll encounter include **dplyr**, **readr**, **tidyr**, **ggplot2**, **stringr**, and **lubridate**
+
+The substantive focus of this short workshop is introducing a set of tools for data management, cleaning, manipulation, and exploration using R and the **tidyverse**. When thinking about the broader research process for a quantitative empirical project, an extremely simplified model of the process might be:
+
+$$\textrm{Develop Question} \rightarrow \textrm{Collect Data} \rightarrow \underbrace{\textrm{Clean, Organize, and Transform Data}}_{\textrm{This workshop}} \rightarrow \textrm{Analyze Data} \rightarrow \textrm{Share Findings} $$
+
+In a typical graduate program, students might cover steps 1 and 2 in a research design course, learn step 4 in their methods classes, and get practice at step 5 via seminar papers, writing a prospectus, and presenting research in a workshop. It's less typical for students to get formal training in step 3. While there is more material than we'll have time to cover in this workshop alone, we'll introduce a set of powerful tools for commonly encountered situations in computational social science. As we go, I'll share resources that will allow students to dive deeper into these topics. Much of the material I'm presenting is drawn from ["R for Data Science" by Hadley Wickham and Garrett Grolemund](https://r4ds.had.co.nz/index.html). In addition to showing you how to use tools, I'll also share my approach to project organization and management. This is a system developed via trial and error, and has proven incredibly useful to me, but there are alternative ways to organize and manage a project such as this.[^2] Less important than the specifics of the system is that *you have one*. Haphazardly throwing code, data, and results into a folder and hoping you can find what you need when you need it is a recipe for disaster, and the risk only scales as you work on more and bigger projects. Practices that might get you by in a seminar quickly become unworkable as a seminar paper turns into a prospectus, which turns into a dissertation, which (potentially!) turns into a research agenda.
+
+[^2]: One useful guide that shares some, but not all, features in common with what I'll introduce here, is ["Code and Data for the Social Sciences: A Pracitioner's Guide" by Matthew Gentzkow and Jesse M. Shapiro](https://web.stanford.edu/~gentzkow/research/CodeAndData.xhtml).
+
+# Refresher on RStudio and code documents
+
+Before we go any further, let's take a moment to (re-)familiarize ourselves with what's going on when we open up RStudio. RStudio displays four different panes when you're working with code. The top left pane, where you're probably reading this, is known as the **Source** pane. If you're working on a notebook (like this document) or a script, it will appear here. You can also view datasets you're working with in this pane using RStudio's built-in data viewer. The bottom left pane is the **Console**, where you can run lines of code directly, although you can run code from a notebook or script as well. If you want to save code so everything you do is reproducible (which you should be doing 99% of the time), you need to make sure to put it in your script or notebook, as code you run in the console will not be saved. The top right pane shows (among other things) the **Environment**. When you load data or create objects, their names and details will appear in this pane, and the environment pane is useful for keeping track of what you've created, what variable names are, etc.. Finally, the bottom left pane shows the **File** directory. You can load data or open a notebook from here, for example. It's also where help files will appear if you ask R to explain how a function or command works, or plots be displayed if you're not working a notebook.
+
+Speaking of which, this document is an **R Markdown Notebook**. The two most common types of code documents you'll work with are notebooks and scripts. An R script contains nothing but code and short comments about what the code is doing. It's meant primarily to accomplish one focused coding job (merging datasets, running a series of regressions, etc.) and do little else. In contrast, a notebook contains a combination of text, like what you're reading now, chunks of code that accomplish specific tasks, and plot output. You can add all sorts of formatting to make everything look neat, and you can compile the text, code, and output into a readable document like a PDF or HTML file using R's markdown language. I typically use a series of individual R scripts for data cleaning and management, but conduct analyses in a notebook that make it easy to go back and forth between sections and see previous output as I continue to analyze.
+
+# Projects and directories
+
+As a project progresses, the data, scripts, and notebooks collect. How do you 1) keep track of where everything is? and 2) make it easy for code to reference data and other code?
+
+The two tools we'll discuss here are **RStudio projects** and **directory structure**. [RStudio projects](https://support.rstudio.com/hc/en-us/articles/200526207-Using-RStudio-Projects#:~:text=Using%20Projects,%2C%20history%2C%20and%20source%20documents) are a helpful way to keep individual projects separated, make it easy to move from one to the other, and free the user from having to worry about where on their computer individual files are.
+
+About that latter point -- have you ever seen a line that looks something like:
+
+```{r eval=FALSE}
+setwd("C:\\Users\\NameAndOrNumbers\\OneDrive\\Documents\\R\\MyProject\\SpecificFolder")
+```
+
+or some similarly long and hyper-specific file location? This is bad practice for several reasons. First, it means that if you ever move any files on your computer anywhere else, your code won't run and you'll have to hunt down where the files live now. Second, it means that anyone who you share your code with will have to change things to match where files and folders are on their specific machine. All sorts of weird things can happen when finding and setting directories on different machines, when using different types of documents, etc.
+
+RStudio projects avoid all of this by creating a **.Rproj** file that establishes a **root directory**. This is the directory in which everything associated with a project lives. When you open a project in RStudio, it automatically sets the directory to this root directory, allowing you to load data with a command as simple as:
+
+```{r eval=FALSE}
+load("Data/My Data.Rda")
+```
+
+Furthermore, anyone given access to the project and all of its folders can run that same command regardless of where they're running it or on what machine. Once you have multiple projects set up, you can cycle between them by clicking on the project name in the upper right-hand side of RStudio. Clicking on a project opens it, sets the directory to the root directory, and opens any previously open code documents so you can pick up where you left off. Setting up a project in RStudio is as easy as selecting "File" -\> "New Project" in the dropdown menu at the upper right. At this point, RStudio will ask if you want to create an entirely new directory for the project, or put the project in an existing directory.
+
+This brings us to the next subject -- organizing the project directory. While it's possible with an RStudio project to have all files in the root directory, as projects get bigger and files accumulate this quickly becomes unwieldy. Instead, files should be organized into folders dedicated to specific types of file. For example, all data files in a folder titled "Data", all code scripts in a folder titled "Code", etc. For a specific research project, I typically create the following folders in my directory:
+
+* **Data**
+  + Contains all downloaded data files, unedited, as well as intermediate data files (i.e., after cleaning and manipulation). Some separate these into two folders.
+* **Code**
+  + Contains the scripts that take as an input all raw data to produce intermediate and final data files, as well as code to perform any analyses.
+* **Literature**
+  + Contains article and book summaries, annotated bibliographies, any downloaded papers I want to keep track of, etc.
+* **Figures and Tables**
+  + Output of analysis code that creates figures and tables that will be used in papers, presentations, or that I want to reference later.
+* **Papers and Presentations**
+  + Drafts of papers, presentation slides, and any other public-facing materials.
+
+Depending on the specific project oftentimes other folders are necessary, but this is a good blueprint to follow. Furthermore, typically these folders will have subfolders as well. How intricate the subfolder structure is depends on your specific needs, and comes with tradeoffs. Adding additional subfolders might keep things cleaner within the folders and make it easier to find specific files, but come at the cost of increasing complexity and make referencing files in your code more cumbersome (i.e., "Folder/SubFolder/SubSubFolder/..."). Typically the simpler you can keep folder structure past the first level, the better.
+
+# Version control
+
+When creating a project, you'll be asked if you want to create a **git repository**. For any project you anticipate spending months + of work on, I highly recommend your answer to this question be yes! **Git**, along with **GitHub**, are tools of **version control**, which allow you to track changes to a project as they occur over time, and revert to previous versions if necessary. Have you seen (or used) file names "My Code (1-1-22).r", "My Code (version 3.2).r", "My Code (Final Version).r", "My Code (Final Final Version).r", etc.? Version control software allows you to avoid the problem of steadily multiplying versions of the same file, while still ensuring that all previous work you completed is saved. It also helps multi-person collaboration by allowing multiple individuals to work on the same document simultaneously, and easily identify and reconcile changes made by each individual. No need to work on "Project Code (Person 1).r" and "Project Code (Person 2).r" and manually go through line by line to get back to a unified document. Every meaningful piece of software you use, whether on your computer, your phone, the smart thermostat in your home, etc. was built using some form of version control because these issues are unavoidable with large projects for which you want a safety net when (not if) things go wrong. 
+
+The most common form of version control is Git. Git is an open-source tool that can be downloaded locally on your machine and keeps track of changes on your computer. GitHub is a cloud based platform built around Git that allows you to push all changes recorded to a central, online source that you can share with collaborators, if you have any. RStudio has built-in integration with Git and GitHub, and makes it easy to use. After creating a (free) GitHub account and downloading (for free) Git on your computer, the basic workflow of using GitHub with RStudio is as follows:
+
+1. Create an online **repository** (where versions and your changes are kept) on GitHub.
+2. Create a new project, entering the URL of the online repository. RStudio will automatically create a local repository for changes. 
+3. Anytime you make substantial additions or changes to code, documents, etc., **commit** these changes to your local repository.
+4. Periodically, **push** these local changes to the online GitHub repository. 
+
+All of this can be accomplished using the Git pane in the upper right of RStudio. There's way more material about version control using Git and GitHub then we have time to cover here, but there are quite helpful resources available online specifically focused on Git/GitHub for data science using RStudio.^[Two resources that I find particularly helpful are ["Happy Git and GitHub for the useR"](https://happygitwithr.com/index.html) by Jennifer Bryan and [the chapter on Git/GitHub](https://cfss.uchicago.edu/setup/what-is-git/) in "Computing for the Social Sciences" by Benjamin Soltoff.] In my experience, version control using Git/GitHub requires a moderately large investment of learning time and effort in order to get the hang of it, but the dividends are worth it as soon as you realize a result looks different after a coding change made a while back, or you want to go back to a much earlier form of the analysis. Without version control, figuring this out can take hours, if it's even possible at all. When using GitHub, finding the old version of the code is as simple as locating the named commit where the change was made and downloading the last version of the project prior to when the change was made. 
+
+# Data formats
+
+One last subject to cover on the topic of project and data management: **data formats**. The varieties of formats that data come in are near infinite, and simply loading data into R in a recognizable form can be a task depending on the original format. Unfortunately, oftentimes the specific solution is dependent on the file format of the data itself, and requires a tailored approach that only a dedicated internet search will reveal. That said, rarely if ever will you be the first person to try to download a specific data format into R, and typically some Google-ing will quickly provide a workable solution. As always, [Stack Overflow](https://stackoverflow.com/) is your friend. In addition, sometimes the data require cleaning outside of R (for example, in Excel) to get it in a form that can be downloaded and understood by R. 
+
+That said, it's worth discussing what the end goal of downloading data into R should be, as this will give us a goal that we'll be working towards in the rest of this data cleaning seminar. The ideal data form for most applications you'll encounter as a social scientist is **tidy** data, the namesake for the **tidyverse** family of packages. The defining feature of tidy data is that every row represents a specific observation (a survey respondent, a member of Congress, a country-year combination, etc.), while each column is a separate variable. Thus the cell for for row *i* and column *j* represents the value of the $j^{th}$ variable for observation $i$.^[The reason this data format is so useful is that the vast majority of common statistical methods (linear regression, factor and principal component analysis, machine learning algorithms, etc.) are built off of linear algebra, which allows operations to be completed efficiently when data take the form of a matrix. Consequently, computational data cleaning tools such as those in the **Tidyverse** package are focused on getting data into this easily usable form.] It's often helpful to think of datasets in terms of the unit of observation, or unit of analysis -- what does each row represent?
+
+Oftentimes data does not come in a tidy format. For example, consider this data downloaded from Australia's Bureau of Statistics, which contains information on how different geographic ares voted in a 2017 referendum on same-sex marriage:
+
+<center>
+![Messy Data](Images/Messy-data.png){width=80%}
+</center>
+
+There's junk (from our perspective) in the first few lines, merged cells complicating the simple row x column format, and no clear unit of observation (some rows are specific geographic subunits, some are for Australia as a whole, etc). 
+
+Instead, consider this version of the data, cleaned and in tidy format:
+
+<center>
+![Tidy Data](Images/Cleaned-data.png){width=80%}
+</center>
+
+Each row represents a specific electoral district in Australia, and each column is a variable containing information about each district and how it responded in the 2017 referendum. This is an ideal format for loading into R and working with. 
+
+Once we have data in this format, there are several ways we can save it for using later. The simplest and most universal format is the delimited file, in which each the column values in each row are separated using a delimiter such as a comma or tab. This is the ubiquitous *.csv* (comma-separated values) and *.tsv* (tab-separated values) that can be found everywhere and opened easily using R, Stata, Excel, etc. 
+
+
+This brings us to our first **Tidyverse** package: **readr**. Readr contains a series of format-specific commands beginning with `read_` designed to quickly, efficiently, and uniformly read in rectangular data. To begin, we load the **tidyverse** package which contains **readr** as well as all other **Tidyverse** packages.
+
+```{r}
+library(tidyverse)
+```
+
+Let's test out the `read_csv()` command using data from the [Correlates of State Policy project](http://ippsr.msu.edu/public-policy/correlates-state-policy). This dataset contains over 3,000 variables for each state-year combinations for American states extending back to 1900, for a total dataframe size of 6,171 rows by 3,020 columns. To use the `read_csv` command, all we need to do is specify the file location. 
+
+```{r}
+csp <- read_csv("Data/Correlates of State Policy (v2.6).csv") 
+```
+
+There are several reasons the `read_csv()` command is superior to the `read.csv()` command that comes with Base R. First, `read_csv()` tends to be faster, particularly for larger datasets. It also will include a progress bar when loading larger datasets, giving you an idea of how long they will take to load. Second, `read_csv()` provides information about how R is interpreting the different columns as different data types (character, numeric, date, logical, etc.). If R is reading in a column in the wrong data format (for example, interpreting a date column as a character string), it has an easy syntax for correcting it. You can also load in specific columns. For example, suppose we wanted to load the year, the state's ICPSR id number, and the gross state product (GSP) for that state in that year. We also want the ICPSR id to be read as a character string instead of a numeric variable, to help merge with a different dataset. To do this, we would use the following code:
+
+```{r}
+csp_subset <- read_csv("Data/Correlates of State Policy (v2.6).csv",
+                       col_select = c("state_icpsr", "year", "gsptotal"),
+                       col_types = c("state_icpsr" = "c"))
+```
+
+A couple other options to be aware of. First, you can always use the `save()` and `load()` commands that come with Base R. These save and load data in the **.Rda** format, which is very flexible for saving things to work with in R. You can save one or more dataframes, vectors and matrices, functions, etc. Of course, it's more difficult for people using other types of data analysis software to work with, so it's less useful for others to work with.
+
+There's a non-tidyverse package, **fst**, which contains the `read_fst()` and `write_fst()` commands which allow you to save and load dataframes quickly. The performance gains relative to `read_csv()` and `load()` become notable as datasets become large (above 2GB). The Correlates of State Policy dataset is considerably smaller, but let's compare performance for the three methods. First, let's load the **fst** libary.
+
+```{r}
+library(fst)
+```
+
+Next, we use the `Sys.time()` command to time how long it takes to load the data in each of the three formats. How do these compare?
+
+```{r}
+begin <- Sys.time()
+load("Data/Correlates of State Policy (v2.6).Rda")
+end <- Sys.time()
+end - begin
+
+begin <- Sys.time()
+csp <- read_csv("Data/Correlates of State Policy (v2.6).csv")
+end <- Sys.time()
+end - begin
+
+begin <- Sys.time()
+csp <- read_fst("Data/Correlates of State Policy (v2.6).fst")
+end <- Sys.time()
+end - begin
+```
+
+With a smaller dataset, the `load()` commands works fastest. However, this quickly changes as data gets larger. In general, saving data in one of these three formats is the simplest and should suffice for most use cases you'll have.^[A topic that is beyond the scope of this workshop is loading and working with JSON data, which you'll typically need to do if you're downloading data directly from an API. The R package **jsonlite** contains a variety of very useful tools for working with JSON data.]
+
