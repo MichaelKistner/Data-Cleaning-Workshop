@@ -384,13 +384,22 @@ summarize()</a></li>
 
 <div id="introduction" class="section level1">
 <h1>Introduction</h1>
-<p>As mentioned in the last notebook, <strong>Tidyverse</strong>
-packages are all designed to share a common syntax and work together
-seamlessly. One of the most important elements that makes this true is
-the combination of the <strong>dataframe-first argument
-ordering</strong> and the <strong>pipe</strong>, which comes from the
-<strong>magrittr</strong> package. What does this mean and why does it
-matter? Let’s take a look.</p>
+<p>In this notebook, we dive more deeply into coding examples. The focus
+of this notebook is on <em>data transformation</em> of various sorts –
+choosing the columns and rows we want to analyze, creating and changing
+variables, summarizing our data by group, and similar tasks. The
+commands in this chapter largely come from the <strong>dplyr</strong>
+package. Specifically, we’ll consider five workhorse commands, or verbs,
+from <strong>dplyr</strong>: <code>filter()</code>,
+<code>select()</code>, <code>arrange()</code>, <code>mutate()</code>,
+and <code>summarize()</code>. We’ll also learn about using the
+<strong>pipe</strong>, which will help us write clean, easy to read
+code, as well as using the <code>group_by()</code> command, a command
+that does nothing on its own but is powerful when used with other
+<strong>dplyr</strong> commands such as <code>summarize()</code> and
+<code>mutate()</code>.</p>
+<p>In case it’s not already loaded, let’s load the
+<strong>tidyverse</strong> package and dive in.</p>
 <pre class="r"><code>library(tidyverse)</code></pre>
 <pre><code>## ── Attaching packages ─────────────────────────────────────── tidyverse 1.3.1 ──</code></pre>
 <pre><code>## ✔ ggplot2 3.3.6     ✔ purrr   0.3.4
@@ -403,12 +412,20 @@ matter? Let’s take a look.</p>
 </div>
 <div id="using-the-pipe" class="section level1">
 <h1>Using the pipe</h1>
+<p>As mentioned in the last notebook, <strong>Tidyverse</strong>
+packages are all designed to share a common syntax and work together
+seamlessly. One of the most important elements that makes this true is
+the combination of the <strong>dataframe-first argument
+ordering</strong> and the <strong>pipe</strong>, which comes from the
+<strong>magrittr</strong> package. What does this mean and why does it
+matter? Let’s take a look.</p>
 <p>We’ll begin by loading a dataset downloaded from the <a href="https://www.fec.gov/campaign-finance-data/current-campaigns-house-and-senate-file-description/">Federal
 Elections Committee website</a> with campaign finance data for every
-candidate that ran for Congress in 2020. the dataset contains such
-information as what party the candidate ran as, whether they were an
-incumbent, challenger, or open seat candidate, the amount they raised
-from various types of donors, the amount they spent, etc.</p>
+candidate that ran for Congress or President in 2020. The dataset
+contains such information as what party the candidate ran as, whether
+they were an incumbent, challenger, or open seat candidate, the amount
+they raised from various types of donors, the amount they spent,
+etc.</p>
 <p>To load the data, we use the <code>read_delim()</code> command from
 the <strong>readr</strong> package, which is a generalized version of
 <strong>read_csv()</strong> or <strong>read_tsv()</strong>. We need a
@@ -445,7 +462,7 @@ variable representing incumbency status and see how many of the
 candidates in the dataset are incumbents vs. challengers vs. open seat
 candidates. We could accomplish this using just the base R commands
 <code>setNames()</code> and <code>table()</code>, as follows:<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a></p>
-<pre class="r"><code>cands_with_varnames &lt;- setNames(cands,
+<pre class="r"><code>cands &lt;- setNames(cands,
                   c(&quot;cand_id&quot;, &quot;name&quot;, &quot;incumbency_status&quot;, &quot;party_code&quot;,
                     &quot;party_affil&quot;, &quot;total_receipts&quot;, &quot;transfers_from_cmte&quot;,
                     &quot;disbursements&quot;, &quot;transfers_to_cmte&quot;, &quot;beginning_cash&quot;,
@@ -457,7 +474,7 @@ candidates. We could accomplish this using just the base R commands
                     &quot;party_contributions&quot;, &quot;coverage_end&quot;, &quot;individ_refunds&quot;,
                     &quot;cmte_refunds&quot;))
 
-table(cands_with_varnames$incumbency_status)</code></pre>
+table(cands$incumbency_status)</code></pre>
 <pre><code>## 
 ##    C    I    O 
 ## 1670  481  494</code></pre>
@@ -470,16 +487,15 @@ selecting a specific variable and creating a table out of it all in one
 line. And things get even messier if we need to do more manipulation.
 For example, suppose we only wanted to consider Democratic and
 Republican candidates. Then that last line becomes:</p>
-<pre class="r"><code>table(cands_with_varnames$incumbency_status[cands_with_varnames$party_affil == &quot;REP&quot; | 
-                                              cands_with_varnames$party_affil == &quot;DEM&quot;])</code></pre>
+<pre class="r"><code>table(cands$incumbency_status[cands$party_affil == &quot;REP&quot; | cands$party_affil == &quot;DEM&quot;])</code></pre>
 <pre><code>## 
 ##    C    I    O 
 ## 1423  475  470</code></pre>
 <p>That’s one mess of a line, trying to accomplish a lot simultaneously
 with dollar signs and brackets everywhere. If this were a cheesy pitch
 on Shark Tank, this is where you’d exclaim “There’s got to be a better
-way!”</p>
-<p>Of course – there is! The solution is the pipe, written as
+way!”.</p>
+<p>There is, of course. The solution is the pipe, written as
 <code>%&gt;%</code>. The pipe’s function is very simple. It tells R to
 take whatever was produced on <em>this</em> line and use it as the first
 argument of whatever command is used on the <em>next</em> line. For
@@ -514,9 +530,9 @@ with operation 1, change with operation 2, end with result.</p>
 <h1>dplyr verb #1: filter()</h1>
 <p>What makes this even more powerful is the fact that virtually all
 operations in <strong>dplyr</strong> and other
-<strong>tidyverse</strong> packages are all designed so that 1) they
-take as their first argument the name of a preexisting dataframe, and 2)
-they produce as an output a modified dataframe. To see an example, let’s
+<strong>tidyverse</strong> packages are designed so that 1) they take as
+their first argument the name of a preexisting dataframe, and 2) they
+produce as an output a modified dataframe. To see an example, let’s
 return to our desire to limit the analysis to just Republicans and
 Democrats. Let’s introduce our first fundamental <strong>dplyr</strong>
 verb, <code>filter()</code>. The filter command returns only particular
@@ -542,41 +558,491 @@ we would do the following:</p>
 <pre><code>## .
 ##    C    I    O 
 ## 1423  475  470</code></pre>
-<p>In the middle of the pipeline, we added the command <span class="math inline">\(\texttt{filter(party_affil == &quot;DEM&quot; |
-party_affil == &quot;REP&quot;)}\)</span>. The first argument to that
-<code>filter()</code> command is the dataframe with the variable names
-added, which was passed to it by the pipe above. The second argument was
-the conditional statement saying which rows we wanted – all those in
-which <code>party_affil</code> was either “DEM” or “REP”. It then
-returned a subset of the original data, which was then passed to the
-<code>pull()</code> and <code>table()</code> commands.</p>
-<p>To summarize, most <strong>dplyr</strong> commands take the following
-form:</p>
+<p>In the middle of the pipeline, we added:
+<code>filter(party_affil == &quot;DEM&quot; | party_affil == &quot;REP&quot;)</code>. The
+first argument to that <code>filter()</code> command is the dataframe
+with the variable names added, which was passed to it by the pipe above.
+The second argument was the conditional statement saying which rows we
+wanted – all those in which <code>party_affil</code> was either “DEM” or
+“REP”. It then returned a subset of the original data, which was then
+passed to the <code>pull()</code> and <code>table()</code> commands.</p>
+<p>Using <code>filter()</code> requires putting together logical tests
+using the familiar logical operators from base R – <code>==</code>,
+<code>!=</code>, <code>&lt;</code>, <code>&gt;=</code>, etc., combined
+with <code>|</code> to link statements using OR (return rows where
+either A OR B are true) and <code>&amp;</code> to link statements using
+AND (return rows where both A AND B are true).</p>
+<p>One useful trick is to use the <code>%in%</code> operator, which
+returns TRUE if any elements of a vector are contained in the original
+variable. For example, an alternative way to write the
+<code>filter()</code> command from above would be:</p>
+<pre class="r"><code>filter(party_affil %in% c(&quot;DEM&quot;, &quot;REP&quot;))</code></pre>
+<p>While this only makes the statement slightly more concise, as the
+number of possible options multiplies, this syntax becomes much more
+preferable.</p>
+<p>To summarize the broader point regarding <strong>dplyr</strong>
+verbs, most such commands take the following form:</p>
 <p><span class="math display">\[\textrm{command(df, arg1, arg2},
 \cdots)\]</span> which produces a modified version of the dataframe
 which can then be used as the first argument in the next line using the
-pipe. Thus the full pipeline typically looks something like:</p>
-<p><span class="math display">\[\begin{align}
-\textrm{df} &amp;\%&gt;\% \\
-\textrm{command1(arg1, arg2}, \cdots) &amp;\%&gt;\% \\
-\textrm{command1(arg1, arg2}, \cdots) &amp;\%&gt;\% \\
-\cdots &amp;
-\end{align}\]</span></p>
+pipe %&gt;%.</p>
 </div>
 <div id="dplyr-verbs-2-and-3-select-and-arrange" class="section level1">
 <h1>dplyr verbs #2 and #3: select() and arrange()</h1>
+<p>The next two <strong>dplyr</strong> verbs allow you to restrict a
+dataframe to only the variables of interest and sort it in useful ways
+by different variables. The first verb is the <code>select()</code>
+command. The <code>select()</code> command allows you to, for lack of a
+better word, select the variables you want to keep and get rid of all
+the rest. Oftentimes datasets are large and contain hundreds or
+thousands of variables, and we only care about a small subset. For
+example, although the dataset contains variables describing election
+results (spec_election, prim_election, runoff_election,
+general_election, general_election_pct), the FEC stopped collecting
+these data in 2007. Thus these columns contain nothing but NAs
+indicating missing data. Let’s get rid of these rather useless
+variables.</p>
+<p>Similar to the other <strong>dplyr</strong> verbs, the first argument
+is the original dataframe, while the following arguments are the
+variables you wish to keep. For example, if we only wanted to keep the
+candidate name, party, incumbency status, and the total amount raised,
+we would use the following command:</p>
+<pre class="r"><code>cands %&gt;%
+  select(c(name, party_affil, incumbency_status, total_receipts))</code></pre>
+<pre><code>## # A tibble: 2,649 × 4
+##    name                         party_affil incumbency_status total_receipts
+##    &lt;chr&gt;                        &lt;chr&gt;       &lt;chr&gt;                      &lt;dbl&gt;
+##  1 YOUNG, DONALD E              REP         I                       1950290.
+##  2 GALVIN, ALYSE                IND         C                       5253252.
+##  3 AVERHART, JAMES              DEM         O                         80095.
+##  4 GARDNER, KIANI A             DEM         O                        118662.
+##  5 COLLINS, FREDERICK G. RICK&#39;  DEM         O                         62935.
+##  6 CARL, JERRY LEE, JR          REP         O                       2344517.
+##  7 LAMBERT, DOUGLAS WESTLEY III REP         O                        182565.
+##  8 PRINGLE, CHRISTOPHER PAUL    REP         O                        491716.
+##  9 HIGHTOWER, BILL              REP         O                       1323944.
+## 10 CASTORANI, JOHN              REP         O                         26810.
+## # … with 2,639 more rows</code></pre>
+<p>Let’s briefly look at <code>arrange()</code> command before going
+back to <code>filter()</code>. The <code>arrange()</code> command,
+unsurprisingly, allows us to arrange the rows of a dataframe according
+to the values of one or more variable. After putting in the dataframe as
+the first argument, the subsequent argument are the variables to arrange
+the dataframe by, with sorting occurring for the first variable first,
+then the second variable next, and so on. For example, if we wanted to
+display the dataframe from above according to the total amount raised,
+we could do the following:</p>
+<pre class="r"><code>cands %&gt;%
+  select(c(name, party_affil, incumbency_status, total_receipts)) %&gt;%
+  arrange(total_receipts)</code></pre>
+<pre><code>## # A tibble: 2,649 × 4
+##    name                       party_affil incumbency_status total_receipts
+##    &lt;chr&gt;                      &lt;chr&gt;       &lt;chr&gt;                      &lt;dbl&gt;
+##  1 KOHLER, NEVIN              DEM         C                              0
+##  2 SAWDY, STEVEN              DEM         C                              0
+##  3 BARONESS VON BEHR, IRINA   IND         C                              0
+##  4 VAN DYKE, GREGORY          REP         C                              0
+##  5 GIBLIN, SCOTT              REP         C                              0
+##  6 CARON, CRAYA CONRADINA DR. REP         O                              0
+##  7 HAYDEN, ALISON             REP         O                              0
+##  8 HILL, HEMAN L              IND         C                              0
+##  9 COLLIN, SUSAN              IND         C                              0
+## 10 CHEN, JAY                  DEM         C                              0
+## # … with 2,639 more rows</code></pre>
+<p>We now see a group of candidates who were…not prodigious fundraisers,
+let’s say. By default, arrange goes from smallest to largest for numeric
+variables, and A to Z for string variables. To reverse that behavior, we
+just need to wrap the variable name ins <code>desc()</code> (for
+descending). Let’s use that to examine the candidates who raised the
+most money, a more interesting set than the bunch who raised the
+least.</p>
+<pre class="r"><code>cands %&gt;%
+  select(c(name, party_affil, incumbency_status, total_receipts)) %&gt;%
+  arrange(desc(total_receipts))</code></pre>
+<pre><code>## # A tibble: 2,649 × 4
+##    name                      party_affil incumbency_status total_receipts
+##    &lt;chr&gt;                     &lt;chr&gt;       &lt;chr&gt;                      &lt;dbl&gt;
+##  1 ELGAR, MISS BETSY PAULINE CON         C                    4824617973 
+##  2 BLOOMBERG, MICHAEL R.     DEM         C                    1124592945.
+##  3 BIDEN, JOSEPH R JR        DEM         C                    1074179976.
+##  4 TRUMP, DONALD J.          REP         I                     744350229.
+##  5 MERCER, LEE L JR          DEM         C                     640000000 
+##  6 STEYER, TOM               DEM         C                     353041956.
+##  7 SANDERS, BERNARD          DEM         C                     218907027.
+##  8 OSSOFF, T. JONATHAN       DEM         C                     156146538.
+##  9 HARRISON, JAIME           DEM         C                     132685670.
+## 10 WARREN, ELIZABETH         DEM         C                     131368112.
+## # … with 2,639 more rows</code></pre>
+<p>A list dominated (unsurprisingly) by the 2020 presidential
+candidates.</p>
+<p>If we wanted to exclude presidential and third-party candidates, and
+arrange first by party, then by amount raised, we could use the
+following code:</p>
+<pre class="r"><code>cands %&gt;%
+  filter(office_state != &quot;00&quot;, party_affil %in% c(&quot;DEM&quot;, &quot;REP&quot;)) %&gt;%
+  select(c(name, party_affil, incumbency_status, total_receipts)) %&gt;%
+  arrange(desc(party_affil), desc(total_receipts))</code></pre>
+<pre><code>## # A tibble: 2,253 × 4
+##    name               party_affil incumbency_status total_receipts
+##    &lt;chr&gt;              &lt;chr&gt;       &lt;chr&gt;                      &lt;dbl&gt;
+##  1 GRAHAM, LINDSEY O. REP         I                     107747534.
+##  2 PERDUE, DAVID      REP         I                      99202974.
+##  3 LOEFFLER, KELLY    REP         I                      92213281.
+##  4 MCSALLY, MARTHA    REP         I                      73553299.
+##  5 MCCONNELL, MITCH   REP         I                      68094903.
+##  6 JAMES, JOHN        REP         C                      48764414.
+##  7 SCALISE, STEVE MR  REP         I                      38160642.
+##  8 DAINES, STEVE      REP         I                      31883905.
+##  9 MCCARTHY, KEVIN    REP         I                      28663630.
+## 10 CORNYN, JOHN SEN   REP         I                      28614523.
+## # … with 2,243 more rows</code></pre>
+<p>Let’s return to <code>select()</code>. We’ve seen how to select
+columns we want to keep, but what if we want to <em>exclude</em>
+particular columns, the original goal we had in mind? Of course, we
+could just select all the variables we wanted to keep, but in our data,
+that’s 25 columns out of 30, a bit tedious to write out. Once more –
+there’s got to be a better way!</p>
+<p>Once again, the <strong>tidyverse</strong> doesn’t fail us. If we put
+an exclamation mark in front of the vector of variable names when using
+<code>select()</code>, select returns all variables in the dataframe
+<em>except</em> those variables. So, to exclude the useless election
+variables, we could do the following:</p>
+<pre class="r"><code>cands %&gt;%
+  select(!c(spec_election, prim_election, runoff_election, 
+           general_election, general_election_pct))</code></pre>
+<pre><code>## # A tibble: 2,649 × 25
+##    cand_id   name         incumbency_stat… party_code party_affil total_receipts
+##    &lt;chr&gt;     &lt;chr&gt;        &lt;chr&gt;                 &lt;dbl&gt; &lt;chr&gt;                &lt;dbl&gt;
+##  1 H6AK00045 YOUNG, DONA… I                         2 REP               1950290.
+##  2 H8AK00140 GALVIN, ALY… C                         3 IND               5253252.
+##  3 H0AL01097 AVERHART, J… O                         1 DEM                 80095.
+##  4 H0AL01105 GARDNER, KI… O                         1 DEM                118662.
+##  5 H0AL01139 COLLINS, FR… O                         1 DEM                 62935.
+##  6 H0AL01055 CARL, JERRY… O                         2 REP               2344517.
+##  7 H0AL01063 LAMBERT, DO… O                         2 REP                182565.
+##  8 H0AL01071 PRINGLE, CH… O                         2 REP                491716.
+##  9 H0AL01089 HIGHTOWER, … O                         2 REP               1323944.
+## 10 H0AL01121 CASTORANI, … O                         2 REP                 26810.
+## # … with 2,639 more rows, and 19 more variables: transfers_from_cmte &lt;dbl&gt;,
+## #   disbursements &lt;dbl&gt;, transfers_to_cmte &lt;dbl&gt;, beginning_cash &lt;dbl&gt;,
+## #   ending_cash &lt;dbl&gt;, cand_contributions &lt;dbl&gt;, cand_loans &lt;dbl&gt;,
+## #   other_loans &lt;dbl&gt;, cand_loan_repayments &lt;dbl&gt;, other_loan_repayments &lt;dbl&gt;,
+## #   debts_owed &lt;dbl&gt;, indiv_contributions &lt;dbl&gt;, office_state &lt;chr&gt;,
+## #   district &lt;chr&gt;, cmte_contributions &lt;dbl&gt;, party_contributions &lt;dbl&gt;,
+## #   coverage_end &lt;chr&gt;, individ_refunds &lt;dbl&gt;, cmte_refunds &lt;dbl&gt;</code></pre>
+<p>Notice that the dataframe now contains 25 columns instead of 30. The
+undesired columns have been successfully excluded.</p>
+<p>We can write even cleaner code than this, however. The
+<code>select()</code> command comes with built in <strong>selection
+helpers</strong> that allow you to select groups of variables.<a href="#fn2" class="footnote-ref" id="fnref2"><sup>2</sup></a> We can
+take advantage of one here, the <code>contains()</code> helper, which
+allows us to specify a character string that all of the variables we
+care about have in common. For our example, we want to exclude all
+variables with “election” in the name, and keep all others. Using the
+<code>contains()</code> helper, this is accomplished as follows:</p>
+<pre class="r"><code>cands %&gt;%
+  select(!contains(&quot;election&quot;)) </code></pre>
+<pre><code>## # A tibble: 2,649 × 25
+##    cand_id   name         incumbency_stat… party_code party_affil total_receipts
+##    &lt;chr&gt;     &lt;chr&gt;        &lt;chr&gt;                 &lt;dbl&gt; &lt;chr&gt;                &lt;dbl&gt;
+##  1 H6AK00045 YOUNG, DONA… I                         2 REP               1950290.
+##  2 H8AK00140 GALVIN, ALY… C                         3 IND               5253252.
+##  3 H0AL01097 AVERHART, J… O                         1 DEM                 80095.
+##  4 H0AL01105 GARDNER, KI… O                         1 DEM                118662.
+##  5 H0AL01139 COLLINS, FR… O                         1 DEM                 62935.
+##  6 H0AL01055 CARL, JERRY… O                         2 REP               2344517.
+##  7 H0AL01063 LAMBERT, DO… O                         2 REP                182565.
+##  8 H0AL01071 PRINGLE, CH… O                         2 REP                491716.
+##  9 H0AL01089 HIGHTOWER, … O                         2 REP               1323944.
+## 10 H0AL01121 CASTORANI, … O                         2 REP                 26810.
+## # … with 2,639 more rows, and 19 more variables: transfers_from_cmte &lt;dbl&gt;,
+## #   disbursements &lt;dbl&gt;, transfers_to_cmte &lt;dbl&gt;, beginning_cash &lt;dbl&gt;,
+## #   ending_cash &lt;dbl&gt;, cand_contributions &lt;dbl&gt;, cand_loans &lt;dbl&gt;,
+## #   other_loans &lt;dbl&gt;, cand_loan_repayments &lt;dbl&gt;, other_loan_repayments &lt;dbl&gt;,
+## #   debts_owed &lt;dbl&gt;, indiv_contributions &lt;dbl&gt;, office_state &lt;chr&gt;,
+## #   district &lt;chr&gt;, cmte_contributions &lt;dbl&gt;, party_contributions &lt;dbl&gt;,
+## #   coverage_end &lt;chr&gt;, individ_refunds &lt;dbl&gt;, cmte_refunds &lt;dbl&gt;</code></pre>
+<p>Helpers such as these are incredibly useful where dealing with large
+datasets with many, similarly named variables that we either want to
+include or exclude.</p>
 </div>
 <div id="dplyr-verb-4-mutate" class="section level1">
 <h1>dplyr verb #4: mutate()</h1>
+<p>The commands we’ve covered thus far have allowed us to keep or remove
+rows and columns and sort the dataframe as desired. But what if we want
+to add new variables to our dataframe? This is done using the
+<code>mutate()</code> command, which creates new variables out of
+existing variables.</p>
+<p>The syntax for <code>mutate()</code> is both familiar – given the
+verbs we’ve seen thus far – and straightforward. After specifying the
+dataframe, each additional argument is the name of the new variable we
+want to create, followed by an expression written in terms of existing
+variables and other functions. For example, suppose we wanted to create
+a new variable that was the total amount of funds received, measured in
+1,000s of dollars. We could use the following code:</p>
+<pre class="r"><code>cands %&gt;%
+  mutate(receipts_thousands = round(total_receipts / 1000)) %&gt;%
+  select(c(name, party_affil, incumbency_status, receipts_thousands))</code></pre>
+<pre><code>## # A tibble: 2,649 × 4
+##    name                         party_affil incumbency_status receipts_thousands
+##    &lt;chr&gt;                        &lt;chr&gt;       &lt;chr&gt;                          &lt;dbl&gt;
+##  1 YOUNG, DONALD E              REP         I                               1950
+##  2 GALVIN, ALYSE                IND         C                               5253
+##  3 AVERHART, JAMES              DEM         O                                 80
+##  4 GARDNER, KIANI A             DEM         O                                119
+##  5 COLLINS, FREDERICK G. RICK&#39;  DEM         O                                 63
+##  6 CARL, JERRY LEE, JR          REP         O                               2345
+##  7 LAMBERT, DOUGLAS WESTLEY III REP         O                                183
+##  8 PRINGLE, CHRISTOPHER PAUL    REP         O                                492
+##  9 HIGHTOWER, BILL              REP         O                               1324
+## 10 CASTORANI, JOHN              REP         O                                 27
+## # … with 2,639 more rows</code></pre>
+<p>The result, as the table shows, is a bit more readable version of the
+original variable.</p>
+<p>New variables can be constructed from character variable as well as
+numeric variables. For instance, suppose we want a different encoding of
+the <code>party_affil</code> variable that groups all third party
+candidates into a single category. We could use a simple
+<code>ifelse()</code> command along with <code>mutate()</code> to
+accomplish this.</p>
+<pre class="r"><code>cands %&gt;%
+  mutate(receipts_thousands = round(total_receipts / 1000),
+         party_simplified = ifelse(!(party_affil %in% c(&quot;REP&quot;, &quot;DEM&quot;, &quot;IND&quot;)), 
+                                   &quot;THIRD&quot;, party_affil)) %&gt;%
+  filter(party_simplified == &quot;THIRD&quot;) %&gt;%
+  select(name, party_affil, party_simplified)</code></pre>
+<pre><code>## # A tibble: 181 × 3
+##    name                     party_affil party_simplified
+##    &lt;chr&gt;                    &lt;chr&gt;       &lt;chr&gt;           
+##  1 LEWELLEN, TOM MR.        C           THIRD           
+##  2 ESMUS, JEFF              NON         THIRD           
+##  3 GARCIA, ERIC             NPA         THIRD           
+##  4 FRICKE, BRANDON          NPA         THIRD           
+##  5 PITTMAN, SHANNEL MS      GRE         THIRD           
+##  6 THOMPSON, LARRY          NPA         THIRD           
+##  7 CORTES BARRAGAN, RODOLFO GRE         THIRD           
+##  8 RIVERA, JUAN LUIS        LIB         THIRD           
+##  9 EDICK, DAVID DANIEL JR   NNE         THIRD           
+## 10 CUNNINGHAM, RYAN BARRETT NPA         THIRD           
+## # … with 171 more rows</code></pre>
+<p>An alternative to <code>ifelse()</code> that comes in useful with
+more complicated recoding of character variables is the
+<code>case_when()</code> function. This allows us to specify a new
+variable flexibly based on values of one or more existing variables. For
+example, the above task could also be accomplished as follows:</p>
+<pre class="r"><code>mutate(party_simplified = case_when(
+  party_affil == &quot;DEM&quot; ~ &quot;D&quot;,
+  party_affil == &quot;REP&quot; ~ &quot;R&quot;,
+  party_affil == &quot;IND&quot; ~ &quot;I&quot;,
+  TRUE ~ &quot;T&quot;
+  )
+)</code></pre>
+<p>One other trick that comes in handy – just like <code>select()</code>
+can be used with selection helpers, you can mutate with selection
+helpers with the <code>mutate_at()</code> command. This is helpful when
+you want to repeat the same transformation for multiple variables. The
+syntax is slightly different. After specifying the dataframe as the
+first argument, the second argument is a vector of column names
+(possibly created using a selection helper) for the variables you want
+to mutate. The final argument is the function you want to apply to them.
+For example, we could create the following function<a href="#fn3" class="footnote-ref" id="fnref3"><sup>3</sup></a> to put a dollar amount
+into thousands of dollars and round it:</p>
+<pre class="r"><code>rounded_thousands &lt;- function(x) {
+  round(x / 1000)
+}</code></pre>
+<p>and then use it with <code>mutate_at()</code> as follows:</p>
+<pre class="r"><code>cands %&gt;%
+  mutate_at(c(&quot;indiv_contributions&quot;, &quot;cmte_contributions&quot;, &quot;party_contributions&quot;),
+            rounded_thousands) %&gt;%
+  select(indiv_contributions, cmte_contributions, party_contributions)</code></pre>
+<pre><code>## # A tibble: 2,649 × 3
+##    indiv_contributions cmte_contributions party_contributions
+##                  &lt;dbl&gt;              &lt;dbl&gt;               &lt;dbl&gt;
+##  1                 963                839                   0
+##  2                4796                340                  10
+##  3                  51                  0                   0
+##  4                  93                 19                   0
+##  5                   6                  0                   0
+##  6                1044                387                   5
+##  7                  21                  4                   0
+##  8                 464                 28                   0
+##  9                1269                 53                   0
+## 10                  12                  0                   0
+## # … with 2,639 more rows</code></pre>
+<p>In the above code, we manually wrote out the variables we wanted to
+apply our function to. Alternatively we could use the
+<code>contains()</code> selection helper to apply this function to all
+variable names containing “contributions”. Because we’re using a
+selection helper outside of <code>select()</code>, we need to wrap it in
+<code>vars()</code> as below:</p>
+<pre class="r"><code>cands %&gt;%
+  mutate_at(vars(contains(&quot;contributions&quot;)),
+            rounded_thousands) %&gt;%
+  select(indiv_contributions, cmte_contributions, party_contributions)</code></pre>
+<pre><code>## # A tibble: 2,649 × 3
+##    indiv_contributions cmte_contributions party_contributions
+##                  &lt;dbl&gt;              &lt;dbl&gt;               &lt;dbl&gt;
+##  1                 963                839                   0
+##  2                4796                340                  10
+##  3                  51                  0                   0
+##  4                  93                 19                   0
+##  5                   6                  0                   0
+##  6                1044                387                   5
+##  7                  21                  4                   0
+##  8                 464                 28                   0
+##  9                1269                 53                   0
+## 10                  12                  0                   0
+## # … with 2,639 more rows</code></pre>
+<p>These are just a few examples of the many types of manipulations we
+can accomplish with <code>mutate()</code>. A couple things to remember.
+First, the output of <code>mutate()</code> (as with all of these
+fundamental <strong>dplyr</strong> verbs) is a dataframe. So even though
+we’re creating a new variable, what mutate returns is the entire
+dataframe with the new variable included, not simply the new variable
+itself. Second, we have to use the assignment operator to save the new
+dataframe, either as a new version of the existing dataframe or an
+entirely new dataframe. None of the manipulations above were saved as we
+did not assign the output to anything. For example, to save the new
+coding of third party candidates, we would have to do the following:</p>
+<pre class="r"><code>cands &lt;- cands %&gt;%
+  mutate(party_simplified = case_when(
+    party_affil == &quot;DEM&quot; ~ &quot;D&quot;,
+    party_affil == &quot;REP&quot; ~ &quot;R&quot;,
+    party_affil == &quot;IND&quot; ~ &quot;I&quot;,
+    TRUE ~ &quot;T&quot;
+  )
+)</code></pre>
+<p>Now our cands dataframe has 31 variables instead of 30, as we now
+have the new <code>party_simplified</code> variable saved.</p>
 </div>
 <div id="dplyr-verb-5-summarize" class="section level1">
 <h1>dplyr verb #5: summarize()</h1>
+<p>The final <strong>dplyr</strong> verb we’ll cover is
+<code>summarize()</code>, which only works when paired with another
+immensely useful command, <code>group_by()</code>. The
+<code>group_by</code> and <code>summarize</code> commands work in tandem
+as follows. If we want to apply a function, such as <code>mean()</code>,
+to multiple groups within our data, we first use the
+<code>group_by()</code> command where the first argument is (as usual)
+the name of the dataframe, and the following arguments are the variable
+or variables you want to group by. The <code>summarize()</code> command,
+after specifying the dataframe, then takes as argument the function or
+functions you want to apply, as well as the name of the new (grouped)
+variable. For instance, what if we wanted to see how much challengers,
+incumbents, and open seat House candidates raised on average? We could
+do so with the following code, which first excludes all presidential and
+Senate candidates:</p>
+<pre class="r"><code>cands %&gt;%
+  filter(district != &quot;00&quot;) %&gt;%
+  group_by(incumbency_status) %&gt;%
+  summarize(average_raised = mean(total_receipts))</code></pre>
+<pre><code>## # A tibble: 3 × 2
+##   incumbency_status average_raised
+##   &lt;chr&gt;                      &lt;dbl&gt;
+## 1 C                        458288.
+## 2 I                       2673999.
+## 3 O                        530345.</code></pre>
+<p>As you may know, incumbents vastly outraise challengers and open seat
+candidates, for a variety of reasons that we won’t get into here. In
+this data, the average incumbent is raising over 5 times as much as
+non-incumbent candidates.</p>
+<p>If we wanted to separate our results by party, we could add a second
+grouping variable to our <code>group_by()</code> command. For
+example:</p>
+<pre class="r"><code>cands %&gt;%
+  filter(district != &quot;00&quot;) %&gt;%
+  group_by(incumbency_status, party_simplified) %&gt;%
+  summarize(average_raised = mean(total_receipts))</code></pre>
+<pre><code>## `summarise()` has grouped output by &#39;incumbency_status&#39;. You can override using
+## the `.groups` argument.</code></pre>
+<pre><code>## # A tibble: 12 × 3
+## # Groups:   incumbency_status [3]
+##    incumbency_status party_simplified average_raised
+##    &lt;chr&gt;             &lt;chr&gt;                     &lt;dbl&gt;
+##  1 C                 D                       485437.
+##  2 C                 I                        28257.
+##  3 C                 R                       492582.
+##  4 C                 T                       182767.
+##  5 I                 D                      2822599.
+##  6 I                 I                      1160520.
+##  7 I                 R                      2501924.
+##  8 I                 T                      3127166.
+##  9 O                 D                       623453.
+## 10 O                 I                       454296.
+## 11 O                 R                       494004.
+## 12 O                 T                        29748.</code></pre>
+<p>Or we could add more <code>summarize()</code> variables. Perhaps we
+want to compare the incumbency advantage for contributions from
+individuals versus political action committees, which are mostly
+corporate or trade PACs:</p>
+<pre class="r"><code>cands %&gt;%
+  filter(district != &quot;00&quot;) %&gt;%
+  group_by(incumbency_status) %&gt;%
+  summarize(average_individual = mean(indiv_contributions),
+            average_pac = mean(cmte_contributions))</code></pre>
+<pre><code>## # A tibble: 3 × 3
+##   incumbency_status average_individual average_pac
+##   &lt;chr&gt;                          &lt;dbl&gt;       &lt;dbl&gt;
+## 1 C                            365320.      26671.
+## 2 I                           1697084.     774625.
+## 3 O                            320087.      45164.</code></pre>
+<p>As this reveals, while incumbent House candidates raise 4 to 5 times
+as much money from individual donors as non-incumbents, they raise 20 to
+30 times as much money from PAC donors.</p>
+<p>While <code>group_by()</code> can be used with
+<code>summarize()</code> to produce these summarized versions of the
+dataset, it can also be used with <code>mutate()</code> to produce a
+dataframe where the unit of observation is not changed, but a grouped
+summary is added as a new variable to each observation. Consider the
+following example. Suppose we wanted to create a variable indicating
+what percent of all money raised by their party any individual House
+member raised. For example, if candidate A raise $500,000 dollars and
+House candidates in their party raised $500,000,000 in total, then
+Candidate A raised 1% of their party’s total.</p>
+<p>To do so, we’ll need to do the following. First, group our dataframe
+by party. Then, use <code>mutate()</code> along with <code>sum()</code>
+to calculate the total amount raised by each party. Third, calculate a
+<code>pct_raised</code> variable by taking the amount raised by each
+candidate and then dividing by the party total. This process can be
+implemented using the code below:</p>
+<pre class="r"><code>cands %&gt;%
+  filter(district != &quot;00&quot;) %&gt;%
+  group_by(party_affil) %&gt;%
+  mutate(party_total = sum(total_receipts),
+         pct_raised = total_receipts / party_total) %&gt;%
+  select(name, party_affil, total_receipts, party_total, pct_raised)</code></pre>
+<pre><code>## # A tibble: 2,077 × 5
+## # Groups:   party_affil [23]
+##    name                        party_affil total_receipts party_total pct_raised
+##    &lt;chr&gt;                       &lt;chr&gt;                &lt;dbl&gt;       &lt;dbl&gt;      &lt;dbl&gt;
+##  1 AVERHART, JAMES             DEM                 80095.  994556595.  0.0000805
+##  2 GARDNER, KIANI A            DEM                118662.  994556595.  0.000119 
+##  3 COLLINS, FREDERICK G. RICK&#39; DEM                 62935.  994556595.  0.0000633
+##  4 CARL, JERRY LEE, JR         REP               2344517.  908936104.  0.00258  
+##  5 LAMBERT, DOUGLAS WESTLEY I… REP                182565.  908936104.  0.000201 
+##  6 PRINGLE, CHRISTOPHER PAUL   REP                491716.  908936104.  0.000541 
+##  7 HIGHTOWER, BILL             REP               1323944.  908936104.  0.00146  
+##  8 CASTORANI, JOHN             REP                 26810.  908936104.  0.0000295
+##  9 BYRNE, BRADLEY ROBERTS      REP                544643.  908936104.  0.000599 
+## 10 HARVEY-HALL, PHYLLIS        DEM                 57723.  994556595.  0.0000580
+## # … with 2,067 more rows</code></pre>
+<p>Again, the number of options with <code>group_by()</code> and
+<code>summarize()</code>, or <code>mutate()</code>, are near endless.
+For a good summary (no pun intended) of commonly used commands, see the
+<a href="https://r4ds.had.co.nz/transform.html#grouped-summaries-with-summarise">chapter
+on data transformation</a> in “R for Data Science”.</p>
 </div>
 <div class="footnotes footnotes-end-of-document">
 <hr />
 <ol>
 <li id="fn1"><p>The names of the specific variables can be found by
 clicking on the URL above to get to the FEC website.<a href="#fnref1" class="footnote-back">↩︎</a></p></li>
+<li id="fn2"><p>A complete description of each can be found <a href="https://5be213bc2d4c4a47bbe1d441dc052c55.app.rstudio.cloud/help/library/dplyr/html/select.html">here</a>.<a href="#fnref2" class="footnote-back">↩︎</a></p></li>
+<li id="fn3"><p>There’s actually a more compact way to accomplish this
+without defining an entire function we’ll likely only use once in our
+code. This is by using an anonymous function, which works similar to a
+lambda function in Python. For more details on this approach, see post
+<a href="https://lukesingham.com/anonymous-functions-in-r-python/">here</a>.<a href="#fnref3" class="footnote-back">↩︎</a></p></li>
 </ol>
 </div>
 
