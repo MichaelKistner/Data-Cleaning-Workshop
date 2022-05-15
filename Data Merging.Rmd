@@ -37,7 +37,8 @@ cands <- read_delim("Data/webl20.txt",
               "district", "spec_election", "prim_election", "runoff_election",
               "general_election", "general_election_pct", "cmte_contributions",
               "party_contributions", "coverage_end", "individ_refunds",
-              "cmte_refunds")) 
+              "cmte_refunds")) %>%
+  filter(district != "00", incumbency_status == "I")
 ```
 
 ```{r}
@@ -47,11 +48,37 @@ cand_cmte_link <- read_delim("Data/ccl.txt",
                   trim_ws = TRUE) %>%
   setNames(c("cand_id", "cand_election_yr",
              "fec_election_year", "pcc_id",
-             "cmte_type", "cmte_designation", "linkage_id"))
+             "cmte_type", "cmte_designation", "linkage_id")) 
 ```
 
 ```{r}
 load("Data/Individual Contributions.Rda")
 ```
 
+```{r}
+group_by(cand_cmte_link,
+         cand_id) %>%
+  summarize(num_cmtes = n()) %>%
+  arrange(desc(num_cmtes))
+```
+
+```{r}
+cands <- select(c(cand_cmte_link,
+                cand_id, pcc_id)) %>%
+  left_join(cands, .)
+```
+
+```{r}
+sum(is.na(cands$pcc_id))
+```
+
+```{r}
+filter(cands, is.na(pcc_id))
+```
+
+```{r}
+contribs <- cands %>%
+  select(c(pcc_id, name, party_affil, office_state, district)) %>%
+  left_join(contribs, .)
+```
 
