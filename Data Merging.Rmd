@@ -13,14 +13,93 @@ options(scipen = 999)
 
 # Introduction
 
+So far, we've been working with a single dataset at a time and modifying it in various ways. One of the most common tasks in data cleaning and management, however, is **merging** data -- combining data from two or more datasets into a single dataframe for analysis. In this notebook, we'll cover the family of `_join()` verbs from the **dplyr** package. Broadly speaking, these verbs can be classified into two categories: **mutating joins** (joins that add new variables to a dataset) and **filtering joins** (joins that filter rows according to the presence or absence of matches in a dataset). In addition to `_join()` commands, we'll also cover the subject of reshaping data using the `pivot_longer()` and `pivot_wider()` commands from the **tidyr** package, which is useful when the data is XXXXXXXXXXXX.
 
-In case it's not already loaded, let's load the **tidyverse** package and dive in.
+As before, let's load the **tidyverse** package and get started.
 
 ```{r}
 library(tidyverse)
 ```
 
-# Test
+# Merging with _join() commands
+
+Let's begin by creating a pair of small toy datasets to illustrate the logic of joins. Later on in the notebook we'll apply what we learn here to actual data. Suppose we have a dataset with details about members of Congress -- their first name, last name, their party, the state they're from, etc. Suppose we also have a separate dataset with information about the DW-NOMINATE scores for each member, representing their ideology on a scale that runs from approximately -1 (most liberal) to 1 (most conservative).^[A more detailed description of DW-NOMINATE scores and downloadable data can be found at [voteview.com](https://voteview.com/).] Let's call the first dataframe `df_a` (Dataframe A) and the second `df_b` (Dataframe B).
+ 
+```{r}
+df_a <- tibble(
+  LastName = c("Pelosi", "McCarthy", "Ocasio-Cortez", 
+               "Lee", "Crenshaw"),
+  FirstName = c("Nancy", "Kevin", "Alexandria",
+                "Barbara", "Dan"),
+  Party = c("D", "R", "D", "D", "R"),
+  State = c("CA", "CA", "NY", "CA", "TX")
+)
+
+df_b <- tibble(
+  LastName = c("Schiff", "Pelosi", "Ocasio Cortez", 
+               "Lee", "Crenshaw", "McCarthy", "Gaetz"),
+  DWNom_Dim1 = c(-0.35, -0.49, -0.25, -0.68,
+                 0.43, 0.46, 0.61)
+)
+```
+
+With data this small, we could manually enter data from `df_b` into `df_a`, but with large datasets this quickly becomes impractical. Instead, we can use **dplyr**'s `_join()` commands to do the difficult work for us.
+
+An important concept for all `_join()` commands is the idea of a **key**. A **key** variable identifies observations in each dataset. For example, in our dataframes, we could use `LastName` as the key variable to link observations across the two dataframes and combine them. 
+
+There are some important details to know about using keys for merging. First, computers are literal machines. Keys have to match *exactly*. Spelling errors, different formatting, lower case vs. upper case -- any of these will result in the data with the non-matching keys not being merged. Second, if a single variable doesn't uniquely identify observations, multiple variables can be used. We'll come back to this later.
+
+Let's begin with the simplest version of the `_join()` commands, the `inner_join()`. An `inner_join()` merges two dataframes -- every column from dataframe A, and every column from dataframe B -- keeping only rows where there's a match between the key in dataframe A and dataframe B. This last fact is what makes the join and *inner* join. In set theoretic terms, it's the intersection of the two dataframes. Let's try combining our dataframes with an `inner_join()`.
+
+```{r}
+inner_join(df_a, df_b, by = "LastName")
+```
+
+What were the results? We now have a dataframe with all of the original variables in dataframe A (FirstName, Party, and State) along with the DW-NOMINATE scores for each representative. Notice, however, that we're missing some observations. First, (Adam) Schiff and (Matt) Gaetz are missing because even though they're in dataframe B, they're not in dataframe A. The `inner_join()` gets rid of these observations. 
+
+Second, we're missing Alexandria Ocasio-Cortez even though she's in both datasets. If you take a look, you'll realize that the hyphen between AOC's last names is missing in her name in dataframe B. If we fix that, we'll get her data back in the merge.
+
+```{r}
+df_b <- mutate(df_b,
+               LastName = ifelse(LastName == "Ocasio Cortez",
+                                 "Ocasio-Cortez",
+                                 LastName))
+
+inner_join(df_a, df_b, by = "LastName")
+```
+Now that the name matches, the merge works as expected. 
+
+
+
+```{r}
+df_a <- tibble(
+  LastName = c("Lee"),
+  FirstName = c("Sheila Jackson"),
+  Party = c("D"),
+  State = c("TX")
+  ) %>%
+  bind_rows(df_a)
+
+
+```
+
+```{r}
+df_b <- tibble(
+  LastName = c("Schiff", "Pelosi", "Ocasio Cortez", 
+               "Lee", "Crenshaw", "McCarthy", "Gaetz"),
+  FirstName = c("Adam", "Nancy", "Alexandria",
+                "Barbara", "Dan", "Kevin", "Matt"),
+  DWNom_Dim1 = c(-0.35, -0.49, -0.25, -0.68,
+                 0.43, 0.46, 0.61))
+)
+```
+
+
+
+# Filtering joins
+
+# Application: contribution data
+
 
 ```{r}
 cands <- read_delim("Data/webl20.txt",
@@ -63,8 +142,8 @@ group_by(cand_cmte_link,
 ```
 
 ```{r}
-cands <- select(c(cand_cmte_link,
-                cand_id, pcc_id)) %>%
+cands <- cand_cmte_link %>% 
+  select(c(cand_id, pcc_id)) %>%
   left_join(cands, .)
 ```
 
@@ -81,4 +160,14 @@ contribs <- cands %>%
   select(c(pcc_id, name, party_affil, office_state, district)) %>%
   left_join(contribs, .)
 ```
+
+```{r}
+contribs %>%
+  group_by(name) %>%
+  summarize(IndividualContribs = sum(transaction_amount)) %>%
+  arrange(desc(IndividualContribs))
+```
+
+# Reshaping data with pivot commands
+
 
