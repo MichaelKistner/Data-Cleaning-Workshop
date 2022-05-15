@@ -13,11 +13,11 @@ options(scipen = 999)
 
 # Introduction
 
-So far, we've been working with a single dataset at a time and modifying it in various ways. One of the most common tasks in data cleaning and management, however, is **merging** data -- combining data from two or more datasets into a single dataframe for analysis. In this notebook, we'll cover the family of `_join()` verbs from the **dplyr** package. Broadly speaking, these verbs can be classified into two categories: **mutating joins** (joins that add new variables to a dataset) and **filtering joins** (joins that filter rows according to the presence or absence of matches in a dataset). In addition to `_join()` commands, we'll also cover the subject of reshaping data using the `pivot_longer()` and `pivot_wider()` commands from the **tidyr** package, which is useful when the data is XXXXXXXXXXXX.
+So far, we've been working with a single dataset at a time and modifying it in various ways. One of the most common tasks in data cleaning and management, however, is **merging** data -- combining data from two or more datasets into a single dataframe for analysis. In this notebook, we'll cover the family of `_join()` verbs from the **dplyr** package. Broadly speaking, these verbs can be classified into two categories: **mutating joins** (joins that add new variables to a dataset) and **filtering joins** (joins that filter rows according to the presence or absence of matches in a dataset). We'll begin by working with simple examples before moving to a real application of these principles. In addition to the `_join()` commands, we'll also cover the subject of reshaping data using the `pivot_longer()` and `pivot_wider()` commands from the **tidyr** package, which is useful when the data is XXXXXXXXXXXX.
 
 As before, let's load the **tidyverse** package and get started.
 
-```{r}
+```{r, warning=FALSE, message=FALSE}
 library(tidyverse)
 ```
 
@@ -115,7 +115,8 @@ df_b <- tibble(
 Let's try that merge again, only this time, we'll merge on two key variables -- last *and* first name.
 
 ```{r}
-full_join(df_a, df_b, by = c("LastName", "FirstName"))
+combined_df <- full_join(df_a, df_b, by = c("LastName", "FirstName"))
+combined_df
 ```
 
 We now have the correct DW-NOMINATE score for Sheila Jackson Lee!
@@ -138,8 +139,47 @@ The figure below displays a useful way of visualizing which observations each of
 
 # Filtering joins
 
-# Application: contribution data
+The other types of joins that you should be aware of are what's known as **filtering joins**. These commands aren't meant to add variables from multiple datasets together. Rather, they're designed to either keep or exclude rows in one dataframe (hence the *filter* in the name) based on whether an observation is in a second dataframe. 
 
+The first example of this, a `semi_join()`, keeps observations in Dataframe A if and only if there is a key match in Dataframe B. For example, suppose we have a dataset on members in the Congressional Black Caucus.
+
+```{r}
+cbc_members <- tibble(
+  FirstName = c("Maxine", "James","Sheila Jackson",  "Barbara"),
+  LastName = c("Waters", "Clyburn", "Lee", "Lee"),
+  MemberSince = c(1991, 1993, 1995, 1998)
+)
+```
+
+If we wanted to conduct an analysis on members of the Congressional Black Caucus using variables in our original dataframe, but we didn't need any other variables from the `cbc_members` dataframe, we could use `semi_join()`. The syntax would be as follows:
+
+```{r}
+semi_join(combined_df, cbc_members, by = c("FirstName", "LastName"))
+```
+What we get as a result is the rows of the original dataframe for members Barbara Lee and Sheila Jackson Lee, the only members of the Congressional Black Caucus in the data we had previously.
+
+The `anti_join()` command accomplishes the exact opposite of the `semi_join()` command. Instead of keeping rows from Dataframe A with matches in Dataframe B, it returns only those rows without matches. For example, if we conduct an `anti_join()` using the same data and arguments as above, we would get the following:
+
+```{r}
+anti_join(combined_df, cbc_members, by = c("FirstName", "LastName"))
+```
+Thus we have all members of Congress in our original dataframe who are not in the Congressional Black Caucus. 
+
+`anti_joins` can be useful for a purpose like this, in which we want to exclude certain observations from our data. More frequently, `anti_joins` are useful for diagnosing where you're missing data. For example, if you were collecting data for members of Congress in a dataset, and wanted to quickly determine if you were missing any members, you could download a dataset with the full set of Congressional members you're interested in and perform an `anti_join`, to see if there are any rows remaining after the `anti_join`. 
+
+# Application: merging member information with contribution data
+
+Let's examine a real world application of merging using `_join()` commands. We'll return to the FEC data from before, but instead of just looking at aggregate totals for candidates, we'll look at data on specific contributions. The file `Individual Contributions (House Representatives).Rda` contains data on every contribution reported to the FEC to an incumbent U.S. Representative running for reelection in 2020, from January 1st to election day.^[The data has been partially cleaned already, but was originally downloaded from the FEC website [here](https://www.fec.gov/files/bulk-downloads/2020/indiv20.zip).] We begin by loading the data into memory.   
+
+```{r}
+load("Data/Individual Contributions (House Representatives).Rda")
+
+contribs %>% as_tibble()
+```
+
+As we can see after we load the data, we have a dataframe with approximately 2.5 million contributions and four variables. Each transaction (contribution) is uniquely identified with a transaction ID. We also have the ID of the Principal Campaign Committee (PCC) that the contribution was made to. Finally, we have the date the contribution was made and the dollar amount.
+
+We want to associate each of these contributions with the member of Congress they were made to. Let's load our candidate dataframe again and think about how to merge these dataframes together. We'll filter our dataframe to only include incumbents running for the US House, since those are the candidates that we have contribution data for.
 
 ```{r}
 cands <- read_delim("Data/webl20.txt",
@@ -157,43 +197,52 @@ cands <- read_delim("Data/webl20.txt",
               "general_election", "general_election_pct", "cmte_contributions",
               "party_contributions", "coverage_end", "individ_refunds",
               "cmte_refunds")) %>%
-  filter(district != "00", incumbency_status == "I")
+  filter(incumbency_status == "I", district != "00")
+
+cands
 ```
+
+Unfortunately, while we have the FEC's candidate ID in this dataset, we don't have the campaign committee ID to merge on. Luckily, a linkage file (candidate to committee) can be downloaded on the FEC's website. This isn't an uncommon situation when dealing with complex data -- frequently, to merge dataframes A and B, we will need a third dataframe C that can act as a "crosswalk" of sorts to go between them. Using similar code to above, we'll read in the linkage file that contains both a `cand_id` variable and a `pcc_id` variable.
 
 ```{r}
 cand_cmte_link <- read_delim("Data/ccl.txt",
-                  delim = "|", escape_double = FALSE,
+                  delim = "|", 
                   col_names = FALSE,
-                  trim_ws = TRUE) %>%
+                  trim_ws = TRUE,
+                  escape_double = FALSE) %>%
   setNames(c("cand_id", "cand_election_yr",
              "fec_election_year", "pcc_id",
              "cmte_type", "cmte_designation", "linkage_id")) 
 ```
 
-```{r}
-load("Data/Individual Contributions.Rda")
-```
+The simplest way to tackle this problem is to first use a `_join()` command to add the `pcc_id` variable to the `cands` dataframe, then second, to add the candidate variables we care about to the `contribs` dataframe, merging on the (now shared) `pcc_id` variable as the key. The next question to ask ourselves is the type of join to use. For the merging the candidate and committee data, I would recommend using a `left_join()`. We don't need a `full_join()` in this scenario because we don't care if there are additional committees not connected to incumbent Representatives We could use an `inner_join()`, since we're not going to be able to merge candidate information if there's not a match in the `cand_cmte_link`. However, it will be easier to evaluate if our merge was successful if we keep all rows from the original dataframe since, hopefully, we'll have a PCC ID for each House incumbent. A `left_join()` will ensure we don't lose any rows from the `cands` dataframe for non-matches.
 
-```{r}
-group_by(cand_cmte_link,
-         cand_id) %>%
-  summarize(num_cmtes = n()) %>%
-  arrange(desc(num_cmtes))
-```
+We begin by taking the `cand_cmte_link` dataframe, select the candidate and PCC ID variables, and joining these variables to the original `cands` dataframe.
 
 ```{r}
 cands <- cand_cmte_link %>% 
   select(c(cand_id, pcc_id)) %>%
   left_join(cands, .)
+
+cands
 ```
+
+If you were paying attention, you'll notice our cands dataframe went from have 428 rows to 526. Does this mean something went wrong? Not at all. Some candidates are associated with multiple committees (for example, a solo committee and a joint committee). We want to associate *all* contributions to *any* linked committee with that candidate, so it's good that we have a row of candidate information to merge for each committee. 
+
+Hopefully we have at least one committee for each member. How can we confirm that? Well, we could see if we're missing any instance of the `pcc_id` variables, since `left_join()` will return an NA if there isn't a `cand_id` match in the linkage file. Let's check. 
 
 ```{r}
 sum(is.na(cands$pcc_id))
 ```
 
+We haven't matched everyone to a committee, but we're close. If we wanted to determine who our problem Representative is, we could use `filter()` in conjunction with the `is.na()` command to return the row of the missing `pcc_id`.
+
 ```{r}
 filter(cands, is.na(pcc_id))
 ```
+Bradley Walker is our problem member. At this point, in a real research project, I would do some sleuthing on the FEC website to try to determine why the PCC ID was missing. Perhaps it's just an error in the specific data we downloaded, and we could find it somewhere else. For the purposes of our workshop, let's proceed by moving on to step 2. Merging with the contribution dataframe. 
+
+We'll use a similar procedure as before. First, we'll select the variables from the `cands` dataframe that we want to add to the contribution data. In this case, besides the `pcc_id` to use as our merge key, let's add the Representatives name, their party, state, and district. We'll again use a `left_join()` -- hopefully we won't be missing any PCC IDs, but the `left_join()` will allow us to evaluate this *ex ante*. 
 
 ```{r}
 contribs <- cands %>%
@@ -201,11 +250,20 @@ contribs <- cands %>%
   left_join(contribs, .)
 ```
 
+How did we do? Let's again check if we're missing any information that should have been merged on, such as candidate name.
+
 ```{r}
-contribs %>%
-  group_by(name) %>%
-  summarize(IndividualContribs = sum(transaction_amount)) %>%
-  arrange(desc(IndividualContribs))
+sum(is.na(contribs$name))
+```
+
+A perfect merge! Always a joy to see as a researcher. 
+
+Before moving on, let's save the newly merged data as a new object. We'll return to this later. 
+
+```{r}
+library(fst)
+
+write_fst(contribs, "Data/Individual Contributions (Merged).fst")
 ```
 
 # Reshaping data with pivot commands

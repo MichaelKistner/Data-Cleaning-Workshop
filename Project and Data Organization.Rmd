@@ -79,14 +79,14 @@ All of this can be accomplished using the Git pane in the upper right of RStudio
 
 # Data formats
 
-One last subject to cover on the topic of project and data management: **data formats**. The varieties of formats that data come in are near infinite, and simply loading data into R in a recognizable form can be a task depending on the original format. Unfortunately, oftentimes the specific solution is dependent on the file format of the data itself, and requires a tailored approach that only a dedicated internet search will reveal. That said, rarely if ever will you be the first person to try to download a specific data format into R, and typically some Google-ing will quickly provide a workable solution. As always, [Stack Overflow](https://stackoverflow.com/) is your friend. In addition, sometimes the data require cleaning outside of R (for example, in Excel) to get it in a form that can be downloaded and understood by R. 
+One last subject to cover on the topic of project and data management: **data formats**. The varieties of formats that data come in are near infinite, and simply loading data into R in a recognizable form can be a task depending on the original format. Unfortunately, oftentimes the specific solution is dependent on the file format of the data itself, and requires a tailored approach that only a dedicated internet search will reveal. That said, rarely if ever will you be the first person to try to download a specific data format into R, and typically some Google-ing will quickly provide a workable solution. As always, [Stack Overflow](https://stackoverflow.com/) is your friend.^[R also has a [webpage on Data Import/Export](https://cran.r-project.org/doc/manuals/r-release/R-data.html) that can be useful in a pinch.] In addition, sometimes the data require cleaning outside of R (for example, in Excel) to get it in a form that can be downloaded and understood by R. 
 
-That said, it's worth discussing what the end goal of downloading data into R should be, as this will give us a goal that we'll be working towards in the rest of this data cleaning seminar. The ideal data form for most applications you'll encounter as a social scientist is **tidy** data, the namesake for the **tidyverse** family of packages. The defining feature of tidy data is that every row represents a specific observation (a survey respondent, a member of Congress, a country-year combination, etc.), while each column is a separate variable. Thus the cell for for row *i* and column *j* represents the value of the $j^{th}$ variable for observation $i$.^[The reason this data format is so useful is that the vast majority of common statistical methods (linear regression, factor and principal component analysis, machine learning algorithms, etc.) are built off of linear algebra, which allows operations to be completed efficiently when data take the form of a matrix. Consequently, computational data cleaning tools such as those in the **Tidyverse** package are focused on getting data into this easily usable form.] It's often helpful to think of datasets in terms of the unit of observation, or unit of analysis -- what does each row represent?
+That said, it's worth discussing what the end goal of downloading data into R should be, as this will give us a goal that we'll be working towards in the rest of this data cleaning seminar. The ideal data form for most applications you'll encounter as a social scientist is **tidy** data, the namesake for the **tidyverse** family of packages. The defining feature of tidy data is that every row represents a specific observation (a survey respondent, a member of Congress, a country-year combination, etc.), while each column is a separate variable. Within each cell is a value of a particular variable for a particular obsertation. Thus the cell for for row *i* and column *j* represents the value of the $j^{th}$ variable for observation $i$.^[The reason this data format is so useful is that the vast majority of common statistical methods (linear regression, factor and principal component analysis, machine learning algorithms, etc.) are built off of linear algebra, which allows operations to be completed efficiently when data take the form of a matrix. Consequently, computational data cleaning tools such as those in the **Tidyverse** package are focused on getting data into this easily usable form.] It's often helpful to think of datasets in terms of the unit of observation, or unit of analysis -- what does each row represent?
 
 Oftentimes data does not come in a tidy format. For example, consider this data downloaded from Australia's Bureau of Statistics, which contains information on how different geographic ares voted in a 2017 referendum on same-sex marriage:
 
 <center>
-![Messy Data](Images/Messy-data.png){width=80%}
+![Messy Data](Images/messy-data.png){width=80%}
 </center>
 
 There's junk (from our perspective) in the first few lines, merged cells complicating the simple row x column format, and no clear unit of observation (some rows are specific geographic subunits, some are for Australia as a whole, etc). 
@@ -94,13 +94,12 @@ There's junk (from our perspective) in the first few lines, merged cells complic
 Instead, consider this version of the data, cleaned and in tidy format:
 
 <center>
-![Tidy Data](Images/Cleaned-data.png){width=80%}
+![Tidy Data](Images/cleaned-data.png){width=80%}
 </center>
 
 Each row represents a specific electoral district in Australia, and each column is a variable containing information about each district and how it responded in the 2017 referendum. This is an ideal format for loading into R and working with. 
 
 Once we have data in this format, there are several ways we can save it for using later. The simplest and most universal format is the delimited file, in which each the column values in each row are separated using a delimiter such as a comma or tab. This is the ubiquitous *.csv* (comma-separated values) and *.tsv* (tab-separated values) that can be found everywhere and opened easily using R, Stata, Excel, etc. 
-
 
 This brings us to our first **Tidyverse** package: **readr**. Readr contains a series of format-specific commands beginning with `read_` designed to quickly, efficiently, and uniformly read in rectangular data. To begin, we load the **tidyverse** package which contains **readr** as well as all other **Tidyverse** packages.
 
@@ -149,5 +148,5 @@ end <- Sys.time()
 end - begin
 ```
 
-With a smaller dataset, the `load()` commands works fastest. However, this quickly changes as data gets larger. In general, saving data in one of these three formats is the simplest and should suffice for most use cases you'll have.^[A topic that is beyond the scope of this workshop is loading and working with JSON data, which you'll typically need to do if you're downloading data directly from an API. The R package **jsonlite** contains a variety of very useful tools for working with JSON data.]
+With a smaller dataset, the `load()` commands works fastest. However, this quickly changes as data gets larger. In general, saving data in one of these three formats is the simplest and should suffice for most use cases you'll have.^[A topic that is beyond the scope of this workshop is loading and working with hierarchical data such as JSON and XML data, which you'll typically need to do if you're downloading data directly from an API. The R package **jsonlite** contains a variety of very useful tools for working with JSON data, as does **xml2** for XML data.]
 
