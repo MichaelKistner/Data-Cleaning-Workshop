@@ -135,7 +135,9 @@ Finally, I want to discuss one last type of join that I find myself using for 90
 
 The figure below displays a useful way of visualizing which observations each of these merging joins keeps.^[The `right_join()` command is identical to the `left_join()` command, all that differs is the positioning of the dataframes.] Don't forget, however, that with merging it's not just about which observations are kept and which are discarded, but what happens when there are duplicate matches. A good rule of thumb: prior to merging data, either 1) verify that the key variable uniquely identifies observations and there are no duplicates, 2) determine how many rows and columns you expect there to be after merging, and verify that you do indeed end up with that many rows and columns, or 3) do both. 
 
+<center>
 ![A diagram for remembering join commands](Images/join-venn.png){width=80%}
+</center>
 
 # Filtering joins
 
@@ -268,4 +270,90 @@ write_fst(contribs, "Data/Individual Contributions (Merged).fst")
 
 # Reshaping data with pivot commands
 
+Before finishing this section of the workshop, let's discuss a topic that often comes up when we want to merge together multiple datasets -- reshaping data. Recall that our ultimate goal is to keep all data in **tidy** format. Every row should be an observation, every column a variable, and each cell a value of a particular variable for a particular observation. An illustrative image is shown below.
 
+<center>
+![The tidy data ideal](Images/tidy-format.png){width=70%}
+</center>
+
+Oftentimes when we download data it does not come in that format. To provide one common example, oftentimes panel data (where multiple units are observed over multiple time periods) when downloaded comes in a format where each unit is a row and the columns are variable-time period pairs.
+
+For example, compare this tidy version of state-year panel data...
+
+```{r}
+tidy_df <- tibble(
+  State = c("Alaska", "Alaska", "Alaska", "Alabama", "Alabama", "Alabama"),
+  Year = c(2008, 2009, 2010, 2008, 2009, 2010),
+  GSP = c(55461, 50463, 54135, 172646, 161231, 170282)
+)
+
+tidy_df
+```
+
+with the alternative...
+
+```{r}
+messy_df <- tibble(
+  State = c("Alaska", "Alabama"),
+  GSP_08 = c(55461, 172646),
+  GSP_09 = c(50463, 161231),
+  GSP_10 = c(54135, 170282)
+)
+
+messy_df
+```
+
+How do we get from one to the other? The answer are the `pivot_wider()` and `pivot_longer()` commands from the **tidyr** package.^[You may have encountered code using `gather()` and `spread()`, which are deprecated **tidyr** commands that still work, if you've learned them before, but are no longer maintained or updated. The new `pivot_wider()` and `pivot_longer()` commands are more flexible, and thus I recommend you use them. If you've been using R for as long as I have you may even remember the older versions, `melt()` and `cast()`, but in programming terms those are ancient history at this point...]
+
+The names of the commands come from the distinction between **long** vs. **wide** datasets. With a **wide** dataset, the column names are not just names of a variable, but also *values* of a variable. In the example above, the variable names includes the values of an (implicit) variable, the year. As a result, we have more columns than we want -- the dataset is literally too wide. 
+
+To address the problem, we need to pivot the problem columns into a new pair of variables. To do so we need to specify three things:
+
+1. The problem columns with values in the variable name
+2. The name of the new variable to move the old column names to (in this case, year)
+3. The name of the new variable to move the values in the cells to (in this case GSP)
+
+If we have that information, we have everything we need to use the `pivot_longer()` command. As is typically the case with **tidyverse** verbs, the first argument is the dataframe name, which makes pivoting in a pipeline easy to do.
+
+```{r}
+messy_df %>%
+  pivot_longer(c(GSP_08, GSP_09, GSP_10), 
+               names_to = "Year", 
+               values_to = "GSP")
+```
+
+This gets us 90% of the way to where we want to be, but notice that the year column contains not just the two-digit year number, but also the GSP prefix of the original variable names. The `pivot_longer()` command contains a handy argument to address that.
+
+```{r}
+messy_df %>%
+  pivot_longer(c(GSP_08, GSP_09, GSP_10), 
+               names_to = "Year", 
+               values_to = "GSP",
+               names_prefix = "GSP_")
+```
+
+We might want to convert the two-digit year number to a four-digit version. We'll cover some ways to do that in the next section of the workshop on dates and characters. Otherwise, the dataframe looks identical to the `tidy_df` from earlier!
+
+When would we want to use the opposite command, `pivot_wider()`? One relatively common scenario that also comes up with panel data is when rows represent unit-time pairs, but each variable is given it's own row as well. For example:
+
+```{r}
+too_long <- tidy_df <- tibble(
+  State = c("Alaska", "Alaska", "Alaska", "Alaska", "Alabama", "Alabama"),
+  Year = c(2008, 2008, 2009, 2009, 2008, 2008),
+  Variable = c("GSP", "Pop", "GSP", "Pop", "GSP", "Pop"),
+  Value = c(55461, 687455, 50463, 698895, 172646, 4718206)
+)
+
+too_long
+```
+Here we only need to specify two things to return this dataframe to proper tidy format. We need to specify which column to take variable names from (here, `Variable`) and which column to taje values from (here, Value).
+
+```{r}
+too_long %>%
+  pivot_wider(names_from = "Variable",
+              values_from = "Value")
+```
+
+Back to proper tidy format! These examples are both fairly straightforward ones, and sometimes you'll come across more complicated examples (it is in fact possible to have a dataset that is simultaneously too long and too wide, which can lead to a major headache). The basic principle for tackling a more complex reshaping task is to break the task into smaller pieces and chain together. In addition to the `pivot_` commands, using `select()` to get the columns you want and `filter()` to get the rows you want can help too. 
+
+As previously mentioned, reshaping data in this manner is often necessary before merging can occur. The goal is to get the unit of observation and key variable into the proper format for merging, at which point we can use the `_join()` commands from above. Additionally, reshaping using the `pivot_` commands often comes in handy when plotting data, as we'll see in the final section of our workshop. 
