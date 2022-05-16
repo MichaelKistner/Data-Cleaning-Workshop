@@ -1,6 +1,7 @@
 # Load libraries
 library(tidyverse)
 library(fst)
+library(estimatr)
 
 # Load data
 contribs <- read_fst("Data/Individual Contributions (Merged).fst")
@@ -45,4 +46,17 @@ tweets_by_day <- expand_grid(Date = unique(tweets_by_day$Date),
   setNames(c("date", "name", "office_state", "district", "n_tweets"))  %>%
   mutate(district = str_pad(district, 2, side = "left", pad = "0"))
 
+tweets_by_day <- group_by(contribs,
+                          transaction_date, office_state, district) %>%
+  rename(date = transaction_date) %>%
+  summarize(total_raised = sum(transaction_amount)) %>%
+  left_join(tweets_by_day, .) %>%
+  mutate(n_tweets = ifelse(is.na(n_tweets), 0, n_tweets),
+         total_raised = ifelse(is.na(total_raised), 0, total_raised))
 
+model <- lm_robust(total_raised ~ n_tweets,
+          fixed_effects = ~ name + date,
+          clusters = name,
+          data = tweets_by_day)
+
+summary(model)

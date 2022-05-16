@@ -1,0 +1,107 @@
+---
+title: "Practice Assignment: Tweeting for Dollars"
+author: "Michael Kistner"
+date: "May 16, 2022"
+output: html_notebook
+---
+
+# Assignment Details
+
+In this assignment, you'll be given a chance to practice some of the data cleaning tools we've covered in this workshop. Most of the focus will be on cleaning and merging data, with some date and text skills and visualization mixed in. 
+
+The question motivating this assignment: does social media activity by members of Congress motivate supporters to contribute? More specifically, is there a relationship between the amount of tweets a representative posts and the amount of money they raise from individual donors? To answer this question, we'll be using the FEC and Twitter datasets introduced earlier in the workshop. 
+
+The assignment will be divided into two sections. The first section is moderate in terms of difficulty. The goal is to create a dataframe where each row is an individual representative, and you have two variables at the member-level: the total number of tweets in the 2020 election cycle, and the total amount of individual contributions raised. Using this dataframe, you'll create a scatterplot with regression line to determine if members who tweet more raise more money.
+
+The second section is more advanced, as we will use variation by day to more credibly estimate the effect of tweeting on fundraising totals. The goal here is to create a panel dataframe where each row is a day by representative combination. Using this data, we'll estimate a two-way fixed effects model controlling for differences across members and days of the election cycle to determine if representatives raise more money when they tweet more.  
+
+For both parts, I will break down the data cleaning and analysis process step by step. Solutions will be shared after everyone has had a chance to work on the assignment.
+
+# Part I: Do Members Who Tweet More Raise More? 
+
+1a. Begin by loading the contribution dataframe ("Data/Individual Contributions (Merged).fst") and the tweets dataframe ("Data/House Tweets.Rda"). Load any necessary packages as well.
+
+```{r}
+
+```
+
+1b. Create a summarized version of the contribution dataframe, where each row is an individual member. Create a `total_raised` variable that is the sum of `transaction_amount` over this entire time period.
+
+```{r}
+
+```
+
+1c. Create a summarized version of the tweets dataframe, where each row is an individual member. Create a `number_tweets` variable that is the number of tweets posted by the member over this entire time period.
+
+```{r}
+
+```
+
+1d. To merge datasets, we'll use the member's state and district as our key variables. Before doing so, we need to ensure our key variables are formatted identically. Format the `district` variable in the summarized tweets dataframe so that it matches the `district` variable in the contributions dataframe.
+
+```{r}
+
+```
+
+1e. Use a `_join()` command to merge the two datasets together.
+
+```{r}
+
+```
+
+1f. Using **ggplot2**, create a scatterplot of the merged data with the number of tweets on the x-axis and the total amount raised on the y-axis. What conclusions can you draw from this plot? Is this an effective visualization?
+
+```{r}
+
+```
+
+1g. Create a modified version of the above plot using logged versions of the two variables. Overlay a linear regression line using the `geom_smooth()` command. What conclusions can we draw from this second plot? Does there appear to be a relationship between tweet volume and fundraising totals?
+
+```{r}
+
+```
+
+# Part 2: Do Members Raise More When They Tweet More?
+
+While the above analysis can provide some insight into the relationship between social media activity, drawing any causal inferences from a member-level relationship is a risky proposition. For example, it could be that more extreme, bombastic members (the Marjorie Taylor Greene's of the of world, for instance) both tweet more and raise more money, but there is no direct effect of tweeting on contributions. To account for this possibility, we'll conduct a within-member analysis to see if members raise more money on days they are particularly active on Twitter, relative to their baseline levels of tweeting and fundraising. 
+
+2a. Doing so requires shaping our data so it's in panel data form, where each row is a day by member combination. Begin by creating a summarized version of the tweet data with a variable indicating the number of tweets posted in any given day.
+
+```{r}
+
+```
+
+2b. Here we run into a problem -- every representative in our data doesn't tweet every single data! We don't want to exclude days with no tweets from our analysis, however. Use the `expand_grid()` command from the **tidyr** package to fill out our data.
+
+The way `expand_grid` works is by returning all possible combinations of two or more vectors. Pass it the vector of (unique) dates found in the tweets data, and the vector of (unique) member names. Then use a `left_join()` to add the state, district, and number of tweets variables from the summarized dataframe you created in the previous question part.
+
+```{r}
+
+```
+
+2c. Using mutate, convert every NA in the number of tweets variable to a 0. In addition, convert the district variable as you did before for merging with the contribution data.
+
+```{r}
+
+```
+
+2d. Next, create a version of the contribution dataframe grouped by day, with a `total_raised` variable similar to the one you constructed above.
+
+```{r}
+
+```
+
+2e. Using `left_join()`, merge the dataframe of contributions summarized by day with the dataframe of tweets summarized by day. Like you did with the number of tweets variable, use `mutate()` to code any days missing the contributions variable as being 0 instead of NA. 
+
+```{r}
+
+```
+
+2f. Use the `lm_robust` command from the **estimatr** package to estimate a two-way fixed effects model where the dependent variable is the `total_raised` variable and the independent variable is the number of tweets variable. Specify that the fixed effects to include are name (of the member of Congress) and date. To help, I've filled out some of the code for you.
+
+```{r}
+
+```
+
+2g. What does the model tell us? Is there evidence that tweeting leads to more contributions from individual donors? Discuss. 
+
