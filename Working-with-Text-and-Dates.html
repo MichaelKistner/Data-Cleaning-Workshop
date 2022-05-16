@@ -178,8 +178,9 @@ pre code {
 <ul>
 <li><a href="#introduction">Introduction</a></li>
 <li><a href="#string-manipulation">String manipulation</a></li>
-<li><a href="#regular-expressions">Regular expressions</a></li>
-<li><a href="#working-with-dates">Working with dates</a></li>
+<li><a href="#using-regular-expressions">Using regular expressions</a></li>
+<li><a href="#string-detection-and-subsetting">String detection and subsetting</a></li>
+<li><a href="#working-with-dates-and-times">Working with dates and times</a></li>
 </ul>
 </div>
 
@@ -193,7 +194,7 @@ load(&quot;Data/House Tweets.Rda&quot;)</code></pre>
 </div>
 <div id="string-manipulation" class="section level1">
 <h1>String manipulation</h1>
-<p>Let’s begin by covering some of the ways we can manipulate strings using the <strong>stringr</strong> package. One of the most common tasks in data cleaning is dealing with messy text data that needs to be tidied, coerced, or augmented in various ways. While base R contains functions that can accomplish most of the same things, the syntax of <strong>stringr</strong> is more consistent and commands usually behave in more predictable ways.</p>
+<p>Let’s begin by covering some of the ways we can manipulate strings using the <strong>stringr</strong> package. One of the most common tasks in data cleaning is dealing with messy text data that needs to be tidied, coerced, or augmented in various ways. While base R contains functions that can accomplish most of the same things, the syntax of <strong>stringr</strong> is more consistent and commands usually behave in more predictable ways. Most importantly, the first argument for almost every <em>stringr</em> command is the original character string you want to manipulate or search. In this sense it’s similar to other <strong>tidyverse</strong> where the first argument is the original dataframe you want to manipulate. This is consistent with the principle “start with original, make changes, return a modified version” that the <strong>tidyverse</strong> is built on.</p>
 <p>One of the most basic tasks is combining multiple strings into one. We accomplish this using <code>str_c()</code>, short for concatenate string. The function behaves similarly to <code>paste()</code> from base R, although it doesn’t add any separation between strings unless you explicitly tell it to. For example, suppose we wanted to combine the following two strings describing what we’re doing in this notebook:</p>
 <pre class="r"><code>str_c(&quot;Learning how to&quot;,
       &quot;clean text data with stringr&quot;)</code></pre>
@@ -203,7 +204,7 @@ load(&quot;Data/House Tweets.Rda&quot;)</code></pre>
       &quot;clean data with stringr&quot;,
       sep = &quot; &quot;)</code></pre>
 <pre><code>## [1] &quot;Learning how to clean data with stringr&quot;</code></pre>
-<p>Looks good. Let’s examine a more realistic data cleaning task where combining strings comes in handy. Suppose we want to create a <code>state_district</code> variable, where the representative’s district is written as the two-letter state initial followed by the two-digit district number, separated by a hyphen, which is a common format in dataset. We could write the code below, which combines the <code>str_c()</code> command with a <code>mutate()</code> to create a new variable in our dataframe.</p>
+<p>Looks good. Let’s examine a more realistic data cleaning task where combining strings comes in handy. Suppose we want to create a <code>state_district</code> variable, where the representative’s district is written as the two-letter state initial followed by the two-digit district number, separated by a hyphen, which is a common format in dataset. We could write the code below, which combines the <code>str_c()</code> command with a <code>mutate()</code> to create a new <code>state_district()</code> variable in our dataframe.</p>
 <pre class="r"><code>house_tweets &lt;- house_tweets %&gt;%
   mutate(state_district = str_c(state, district, sep = &quot;-&quot;))
 
@@ -223,11 +224,12 @@ house_tweets %&gt;%
 ##  9 GARCIA, Sylvia        TX          29 TX-29         
 ## 10 GARCIA, Sylvia        TX          29 TX-29         
 ## # ... with 502,742 more rows</code></pre>
+<p>The new variable is close to what we want, with one problem. For single disitrict districts, we’re missing a leading 0. For example, for New York’s 1st Congressional district, we want the <code>state_district</code> variable to read “NY-01” rather than “NY-1”. We can address this problem using the <code>str_pad()</code> command. <code>str_pad()</code> allows us to specifiy how many characters a particular string should be, and “pad” it with additional characters if it’s too short. To use the command, we just need to specify how many characters the string should be, what we want to pad short strings with (in our case, a 0), and which side to add the extra characters to. The code below uses the <code>str_pad()</code> command on the <code>district</code> variable first, before combining it with the two-letter state abbreviation to create the desired <code>state_district()</code> variable.</p>
 <pre class="r"><code>house_tweets &lt;- house_tweets %&gt;% 
   mutate(district_full = str_pad(district, 
-                                 width = 2, 
-                                 side = &quot;left&quot;,
-                                 pad = &quot;0&quot;),
+                                 width = 2,
+                                 pad = &quot;0&quot;, 
+                                 side = &quot;left&quot;),
          state_district = str_c(state, district_full, sep = &quot;-&quot;))
 
 house_tweets %&gt;%
@@ -246,7 +248,10 @@ house_tweets %&gt;%
 ##  9 GARCIA, Sylvia        TX    29            TX-29         
 ## 10 GARCIA, Sylvia        TX    29            TX-29         
 ## # ... with 502,742 more rows</code></pre>
-<pre class="r"><code>str_split(house_tweets$state_district, &quot;-&quot;, simplify = TRUE)</code></pre>
+<p>We can also accomplish the opposite task of concatenating string, splitting them. In some datasets, for example, we’ll have the combined state and district variable, but no separate variable for the district number or state abbreviations by themselves. We can accomplish this using the <code>str_split()</code> command.</p>
+<pre class="r"><code>str_split(house_tweets$state_district, 
+          pattern = &quot;-&quot;, 
+          simplify = TRUE)</code></pre>
 <pre><code>##           [,1] [,2]
 ##      [1,] &quot;CA&quot; &quot;10&quot;
 ##      [2,] &quot;TX&quot; &quot;20&quot;
@@ -258,15 +263,20 @@ house_tweets %&gt;%
 ##      [8,] &quot;CA&quot; &quot;17&quot;
 ##      [9,] &quot;TX&quot; &quot;29&quot;
 ##     [10,] &quot;TX&quot; &quot;29&quot;
-##  [ reached getOption(&quot;max.print&quot;) -- omitted 502742 rows ]</code></pre>
+##     [11,] &quot;CA&quot; &quot;13&quot;
+##     [12,] &quot;NM&quot; &quot;03&quot;
+##  [ reached getOption(&quot;max.print&quot;) -- omitted 502740 rows ]</code></pre>
+<p>The command requires us to specify the variable containing the string we’re splitting and the character pattern we’re splitting on. The optional argument <code>simplify = TRUE</code> simply tells the command to return the results as a matrix, since the result is not a simple vector (in this case, we have two vectors of results). The default of the command is to return the results as a list unless told otherwise.</p>
+<p>An alternative way of accomplishing the same result would be to use the <code>str_sub()</code> command.<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a> The <code>str_sub</code> command allows you to pull out a subset of a larger string based on the position of characters. After specifiny the original string, we need to tell the command which character to begin with and which character to end with. For example, to return the state abbreviation, we would want the 1st through 2nd characters of the <code>state_district</code> variable. To get the district number, we’d want the 4th through 5th.</p>
 <pre class="r"><code>str_sub(house_tweets$state_district, 1, 2)</code></pre>
 <pre><code>##  [1] &quot;CA&quot; &quot;TX&quot; &quot;TX&quot; &quot;NY&quot; &quot;NY&quot; &quot;HI&quot; &quot;HI&quot; &quot;CA&quot; &quot;TX&quot; &quot;TX&quot; &quot;CA&quot; &quot;NM&quot; &quot;AZ&quot; &quot;CA&quot; &quot;NY&quot;
-## [16] &quot;MD&quot; &quot;MD&quot; &quot;TX&quot; &quot;MN&quot; &quot;FL&quot;
-##  [ reached getOption(&quot;max.print&quot;) -- omitted 502732 entries ]</code></pre>
+## [16] &quot;MD&quot; &quot;MD&quot; &quot;TX&quot; &quot;MN&quot; &quot;FL&quot; &quot;SC&quot; &quot;MO&quot; &quot;IL&quot; &quot;IL&quot;
+##  [ reached getOption(&quot;max.print&quot;) -- omitted 502728 entries ]</code></pre>
 <pre class="r"><code>str_sub(house_tweets$state_district, 4, 5)</code></pre>
 <pre><code>##  [1] &quot;10&quot; &quot;20&quot; &quot;20&quot; &quot;13&quot; &quot;01&quot; &quot;02&quot; &quot;02&quot; &quot;17&quot; &quot;29&quot; &quot;29&quot; &quot;13&quot; &quot;03&quot; &quot;03&quot; &quot;12&quot; &quot;17&quot;
-## [16] &quot;05&quot; &quot;05&quot; &quot;32&quot; &quot;02&quot; &quot;01&quot;
-##  [ reached getOption(&quot;max.print&quot;) -- omitted 502732 entries ]</code></pre>
+## [16] &quot;05&quot; &quot;05&quot; &quot;32&quot; &quot;02&quot; &quot;01&quot; &quot;01&quot; &quot;07&quot; &quot;17&quot; &quot;17&quot;
+##  [ reached getOption(&quot;max.print&quot;) -- omitted 502728 entries ]</code></pre>
+<p>Another common string manipulation problem that emerges occurs when strings are not in the correct case. For example, perhaps the state abbreviation in one dataset is capitalized while it’s not in another dataset that you want to merge with. Moving between capitalization schemes is easy with <strong>stringr</strong>. The <code>str_to_lower()</code> command converts the entire string to lowercase (while <code>str_upper()</code>) does the inverse). The <code>str_to_title()</code> and <code>str_to_sentence()</code> commands convert strings to title and sentence case, respectively. If we wanted to change the capitalization of our name variable, for instance, we could use these commands in conjunction with <code>mutate()</code> as follows:</p>
 <pre class="r"><code>house_tweets %&gt;%
   mutate(name_lower = str_to_lower(name),
          name_title = str_to_title(name)) %&gt;%
@@ -286,43 +296,67 @@ house_tweets %&gt;%
 ## 10 GARCIA, Sylvia        garcia, sylvia        Garcia, Sylvia       
 ## # ... with 502,742 more rows</code></pre>
 </div>
-<div id="regular-expressions" class="section level1">
-<h1>Regular expressions</h1>
-<pre class="r"><code>the_tweet &lt;- house_tweets$text[str_detect(house_tweets$text, &quot;Sasquatch&quot;) &amp; str_detect(house_tweets$text, &quot;SpongeBob&quot;)]</code></pre>
-<pre class="r"><code>the_tweet</code></pre>
+<div id="using-regular-expressions" class="section level1">
+<h1>Using regular expressions</h1>
+<p>So far we’ve been dealing with relatively simple text to match and manipulate. Oftentimes, however, we need to be more precise and flexible about matching certain text. The way we accomplish this in R (and other forms of programming) is using <strong>regular expressions</strong>. Regular expressions are a concise language for describing patterns in strings. To illustrate a (small) portion of what we can accomplish using regular expressions, we’ll use the <code>str_view</code> command, which will highlight which portions of a string are being matched by different regular expressions. The <code>str_view()</code> command isn’t very useful outside of pedagogical purposes, but is quite helpful in understanding what’s going on when we’re using regex in various ways.</p>
+<p>Let’s begin by selecting an example tweet to use for text.</p>
+<pre class="r"><code>the_tweet &lt;- house_tweets$text[str_detect(house_tweets$text, &quot;Sasquatch&quot;) &amp; str_detect(house_tweets$text, &quot;SpongeBob&quot;)]
+
+the_tweet</code></pre>
 <pre><code>## [1] &quot;Hell, if @realDonaldTrump can be President, Kanye can be President. So can SpongeBob. Sasquatch. The Loch Ness monster. Wait, that could be a citizenship issue. Or we just elect a competent adult like @JoeBiden. https://t.co/WF5dDonSFf&quot;</code></pre>
+<p>This lovely text, authored by Mark Pocan of Wisconsin, was written in reply to Kanye West declaring his candidacy for presidency in July of 2020.</p>
+<p>Let’s begin with the simplest regex, just using the exact set of characters we want to match. If we were to search for a certain cartoon character who lives in a pineapple under the sea, we could use the following:</p>
 <pre class="r"><code>str_view(the_tweet, &quot;SpongeBob&quot;)</code></pre>
-<div id="htmlwidget-8e01c4ef92d74a200973" style="width:960px;height:100%;" class="str_view html-widget"></div>
-<script type="application/json" data-for="htmlwidget-8e01c4ef92d74a200973">{"x":{"html":"<ul>\n  <li>Hell, if @realDonaldTrump can be President, Kanye can be President. So can <span class='match'>SpongeBob<\/span>. Sasquatch. The Loch Ness monster. Wait, that could be a citizenship issue. Or we just elect a competent adult like @JoeBiden. https://t.co/WF5dDonSFf<\/li>\n<\/ul>"},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-7df691f846c94eed5276" style="width:960px;height:100%;" class="str_view html-widget"></div>
+<script type="application/json" data-for="htmlwidget-7df691f846c94eed5276">{"x":{"html":"<ul>\n  <li>Hell, if @realDonaldTrump can be President, Kanye can be President. So can <span class='match'>SpongeBob<\/span>. Sasquatch. The Loch Ness monster. Wait, that could be a citizenship issue. Or we just elect a competent adult like @JoeBiden. https://t.co/WF5dDonSFf<\/li>\n<\/ul>"},"evals":[],"jsHooks":[]}</script>
+<p>The highlighted text shows that SpongeBob is matched in it’s entirety, while no other portions of the string are.</p>
+<p>Be careful, however. Without any additional arguments, regex requires that a match be exact in terms of capitalization (and of course, spelling). If were to search for a lowercase version of our aquatic friend, we would strike out.</p>
 <pre class="r"><code>str_view(the_tweet, &quot;spongebob&quot;)</code></pre>
-<div id="htmlwidget-ed8213b2392352ca0b30" style="width:960px;height:100%;" class="str_view html-widget"></div>
-<script type="application/json" data-for="htmlwidget-ed8213b2392352ca0b30">{"x":{"html":"<ul>\n  <li>Hell, if @realDonaldTrump can be President, Kanye can be President. So can SpongeBob. Sasquatch. The Loch Ness monster. Wait, that could be a citizenship issue. Or we just elect a competent adult like @JoeBiden. https://t.co/WF5dDonSFf<\/li>\n<\/ul>"},"evals":[],"jsHooks":[]}</script>
-<pre class="r"><code>str_view(the_tweet, &quot;Sponge...&quot;)</code></pre>
-<div id="htmlwidget-330b89a34f9df1158288" style="width:960px;height:100%;" class="str_view html-widget"></div>
-<script type="application/json" data-for="htmlwidget-330b89a34f9df1158288">{"x":{"html":"<ul>\n  <li>Hell, if @realDonaldTrump can be President, Kanye can be President. So can <span class='match'>SpongeBob<\/span>. Sasquatch. The Loch Ness monster. Wait, that could be a citizenship issue. Or we just elect a competent adult like @JoeBiden. https://t.co/WF5dDonSFf<\/li>\n<\/ul>"},"evals":[],"jsHooks":[]}</script>
-<pre class="r"><code>str_view(the_tweet, &quot;\\.&quot;)</code></pre>
-<div id="htmlwidget-0e3bd1947abf5aba6421" style="width:960px;height:100%;" class="str_view html-widget"></div>
-<script type="application/json" data-for="htmlwidget-0e3bd1947abf5aba6421">{"x":{"html":"<ul>\n  <li>Hell, if @realDonaldTrump can be President, Kanye can be President<span class='match'>.<\/span> So can SpongeBob. Sasquatch. The Loch Ness monster. Wait, that could be a citizenship issue. Or we just elect a competent adult like @JoeBiden. https://t.co/WF5dDonSFf<\/li>\n<\/ul>"},"evals":[],"jsHooks":[]}</script>
-<pre class="r"><code>str_view_all(the_tweet, &quot;\\.&quot;)</code></pre>
-<div id="htmlwidget-22706f00887ac8a8d117" style="width:960px;height:100%;" class="str_view html-widget"></div>
-<script type="application/json" data-for="htmlwidget-22706f00887ac8a8d117">{"x":{"html":"<ul>\n  <li>Hell, if @realDonaldTrump can be President, Kanye can be President<span class='match'>.<\/span> So can SpongeBob<span class='match'>.<\/span> Sasquatch<span class='match'>.<\/span> The Loch Ness monster<span class='match'>.<\/span> Wait, that could be a citizenship issue<span class='match'>.<\/span> Or we just elect a competent adult like @JoeBiden<span class='match'>.<\/span> https://t<span class='match'>.<\/span>co/WF5dDonSFf<\/li>\n<\/ul>"},"evals":[],"jsHooks":[]}</script>
-<pre class="r"><code>str_view_all(the_tweet, &quot;\\d&quot;)</code></pre>
-<div id="htmlwidget-025da3cdc35014948b41" style="width:960px;height:100%;" class="str_view html-widget"></div>
-<script type="application/json" data-for="htmlwidget-025da3cdc35014948b41">{"x":{"html":"<ul>\n  <li>Hell, if @realDonaldTrump can be President, Kanye can be President. So can SpongeBob. Sasquatch. The Loch Ness monster. Wait, that could be a citizenship issue. Or we just elect a competent adult like @JoeBiden. https://t.co/WF<span class='match'>5<\/span>dDonSFf<\/li>\n<\/ul>"},"evals":[],"jsHooks":[]}</script>
-<pre class="r"><code>str_view_all(the_tweet, &quot;\\s&quot;)</code></pre>
-<div id="htmlwidget-63533da4bc5a892b3fb3" style="width:960px;height:100%;" class="str_view html-widget"></div>
-<script type="application/json" data-for="htmlwidget-63533da4bc5a892b3fb3">{"x":{"html":"<ul>\n  <li>Hell,<span class='match'> <\/span>if<span class='match'> <\/span>@realDonaldTrump<span class='match'> <\/span>can<span class='match'> <\/span>be<span class='match'> <\/span>President,<span class='match'> <\/span>Kanye<span class='match'> <\/span>can<span class='match'> <\/span>be<span class='match'> <\/span>President.<span class='match'> <\/span>So<span class='match'> <\/span>can<span class='match'> <\/span>SpongeBob.<span class='match'> <\/span>Sasquatch.<span class='match'> <\/span>The<span class='match'> <\/span>Loch<span class='match'> <\/span>Ness<span class='match'> <\/span>monster.<span class='match'> <\/span>Wait,<span class='match'> <\/span>that<span class='match'> <\/span>could<span class='match'> <\/span>be<span class='match'> <\/span>a<span class='match'> <\/span>citizenship<span class='match'> <\/span>issue.<span class='match'> <\/span>Or<span class='match'> <\/span>we<span class='match'> <\/span>just<span class='match'> <\/span>elect<span class='match'> <\/span>a<span class='match'> <\/span>competent<span class='match'> <\/span>adult<span class='match'> <\/span>like<span class='match'> <\/span>@JoeBiden.<span class='match'> <\/span>https://t.co/WF5dDonSFf<\/li>\n<\/ul>"},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-d983e939a5c86d080916" style="width:960px;height:100%;" class="str_view html-widget"></div>
+<script type="application/json" data-for="htmlwidget-d983e939a5c86d080916">{"x":{"html":"<ul>\n  <li>Hell, if @realDonaldTrump can be President, Kanye can be President. So can SpongeBob. Sasquatch. The Loch Ness monster. Wait, that could be a citizenship issue. Or we just elect a competent adult like @JoeBiden. https://t.co/WF5dDonSFf<\/li>\n<\/ul>"},"evals":[],"jsHooks":[]}</script>
+<p>The real power in regular expression comes from the special characters and other tools that come along with it. Let’s look at one such tool. If we want to match on multiple possible characters, we can enclose them in square brackets. For instance, to match any a’s or b’s in the tweet, we could do the following:</p>
 <pre class="r"><code>str_view_all(the_tweet, &quot;[ab]&quot;)</code></pre>
-<div id="htmlwidget-1b7ac0e2140fba494abf" style="width:960px;height:100%;" class="str_view html-widget"></div>
-<script type="application/json" data-for="htmlwidget-1b7ac0e2140fba494abf">{"x":{"html":"<ul>\n  <li>Hell, if @re<span class='match'>a<\/span>lDon<span class='match'>a<\/span>ldTrump c<span class='match'>a<\/span>n <span class='match'>b<\/span>e President, K<span class='match'>a<\/span>nye c<span class='match'>a<\/span>n <span class='match'>b<\/span>e President. So c<span class='match'>a<\/span>n SpongeBo<span class='match'>b<\/span>. S<span class='match'>a<\/span>squ<span class='match'>a<\/span>tch. The Loch Ness monster. W<span class='match'>a<\/span>it, th<span class='match'>a<\/span>t could <span class='match'>b<\/span>e <span class='match'>a<\/span> citizenship issue. Or we just elect <span class='match'>a<\/span> competent <span class='match'>a<\/span>dult like @JoeBiden. https://t.co/WF5dDonSFf<\/li>\n<\/ul>"},"evals":[],"jsHooks":[]}</script>
-<pre class="r"><code>house_tweets %&gt;% 
-  filter(str_detect(text, &quot;Loch Ness&quot;)) %&gt;%
-  select(text)</code></pre>
-<pre><code>## # A tibble: 2 x 1
-##   text                                                                          
-##   &lt;chr&gt;                                                                         
-## 1 &quot;Hell, if @realDonaldTrump can be President, Kanye can be President. So can S~
-## 2 &quot;\&quot;Proof of systematic fraud has become the Loch Ness Monster of the Republic~</code></pre>
+<div id="htmlwidget-048148c6c5c09536a070" style="width:960px;height:100%;" class="str_view html-widget"></div>
+<script type="application/json" data-for="htmlwidget-048148c6c5c09536a070">{"x":{"html":"<ul>\n  <li>Hell, if @re<span class='match'>a<\/span>lDon<span class='match'>a<\/span>ldTrump c<span class='match'>a<\/span>n <span class='match'>b<\/span>e President, K<span class='match'>a<\/span>nye c<span class='match'>a<\/span>n <span class='match'>b<\/span>e President. So c<span class='match'>a<\/span>n SpongeBo<span class='match'>b<\/span>. S<span class='match'>a<\/span>squ<span class='match'>a<\/span>tch. The Loch Ness monster. W<span class='match'>a<\/span>it, th<span class='match'>a<\/span>t could <span class='match'>b<\/span>e <span class='match'>a<\/span> citizenship issue. Or we just elect <span class='match'>a<\/span> competent <span class='match'>a<\/span>dult like @JoeBiden. https://t.co/WF5dDonSFf<\/li>\n<\/ul>"},"evals":[],"jsHooks":[]}</script>
+<p>This provides one solution to the capitalization problem above. If we’re not sure how “SpongeBob” might be capitalized in the tweet, we could use the following regular expression:</p>
+<pre class="r"><code>str_view(the_tweet, &quot;[Ss]ponge[Bb]ob&quot;)</code></pre>
+<div id="htmlwidget-a28a05922cdc76f5736d" style="width:960px;height:100%;" class="str_view html-widget"></div>
+<script type="application/json" data-for="htmlwidget-a28a05922cdc76f5736d">{"x":{"html":"<ul>\n  <li>Hell, if @realDonaldTrump can be President, Kanye can be President. So can <span class='match'>SpongeBob<\/span>. Sasquatch. The Loch Ness monster. Wait, that could be a citizenship issue. Or we just elect a competent adult like @JoeBiden. https://t.co/WF5dDonSFf<\/li>\n<\/ul>"},"evals":[],"jsHooks":[]}</script>
+<p>Another example of a powerful regular expressio tool is the period. A . can be used to match any character – it’s the wildcard of regular expressions. If we type the following, we’ll get the same match as above:</p>
+<pre class="r"><code>str_view(the_tweet, &quot;Sponge...&quot;)</code></pre>
+<div id="htmlwidget-c0a73a81015110009e6f" style="width:960px;height:100%;" class="str_view html-widget"></div>
+<script type="application/json" data-for="htmlwidget-c0a73a81015110009e6f">{"x":{"html":"<ul>\n  <li>Hell, if @realDonaldTrump can be President, Kanye can be President. So can <span class='match'>SpongeBob<\/span>. Sasquatch. The Loch Ness monster. Wait, that could be a citizenship issue. Or we just elect a competent adult like @JoeBiden. https://t.co/WF5dDonSFf<\/li>\n<\/ul>"},"evals":[],"jsHooks":[]}</script>
+<p>This brings up a question – if . matches anything, how would we match an actual period in a sentence? We can accomplish that by using two backslashes before the period, which indicates that we want to search for the punctuation mark.</p>
+<pre class="r"><code>str_view(the_tweet, &quot;\\.&quot;)</code></pre>
+<div id="htmlwidget-01cfde97e244b616fbdc" style="width:960px;height:100%;" class="str_view html-widget"></div>
+<script type="application/json" data-for="htmlwidget-01cfde97e244b616fbdc">{"x":{"html":"<ul>\n  <li>Hell, if @realDonaldTrump can be President, Kanye can be President<span class='match'>.<\/span> So can SpongeBob. Sasquatch. The Loch Ness monster. Wait, that could be a citizenship issue. Or we just elect a competent adult like @JoeBiden. https://t.co/WF5dDonSFf<\/li>\n<\/ul>"},"evals":[],"jsHooks":[]}</script>
+<p>The above example brings up another issue. What if we want to match multiple expressions in a string? Typically, when using regex and <strong>stringr</strong> commands, the regex will only match the first instance, unless we append the <strong>stringr</strong> commands with <code>_all</code>. If we wanted to match <em>every</em> period in the tweet above, we could do the following:</p>
+<pre class="r"><code>str_view_all(the_tweet, &quot;\\.&quot;)</code></pre>
+<div id="htmlwidget-ca08abbb4aabb777537b" style="width:960px;height:100%;" class="str_view html-widget"></div>
+<script type="application/json" data-for="htmlwidget-ca08abbb4aabb777537b">{"x":{"html":"<ul>\n  <li>Hell, if @realDonaldTrump can be President, Kanye can be President<span class='match'>.<\/span> So can SpongeBob<span class='match'>.<\/span> Sasquatch<span class='match'>.<\/span> The Loch Ness monster<span class='match'>.<\/span> Wait, that could be a citizenship issue<span class='match'>.<\/span> Or we just elect a competent adult like @JoeBiden<span class='match'>.<\/span> https://t<span class='match'>.<\/span>co/WF5dDonSFf<\/li>\n<\/ul>"},"evals":[],"jsHooks":[]}</script>
+<p>Some other special characters that are useful: using “\d” matches any digit, as does the enclosing 0-9 in square brackets. Thus we have:</p>
+<pre class="r"><code>str_view_all(the_tweet, &quot;\\d&quot;)</code></pre>
+<div id="htmlwidget-964bc66bad3a7760708f" style="width:960px;height:100%;" class="str_view html-widget"></div>
+<script type="application/json" data-for="htmlwidget-964bc66bad3a7760708f">{"x":{"html":"<ul>\n  <li>Hell, if @realDonaldTrump can be President, Kanye can be President. So can SpongeBob. Sasquatch. The Loch Ness monster. Wait, that could be a citizenship issue. Or we just elect a competent adult like @JoeBiden. https://t.co/WF<span class='match'>5<\/span>dDonSFf<\/li>\n<\/ul>"},"evals":[],"jsHooks":[]}</script>
+<pre class="r"><code>str_view_all(the_tweet, &quot;[0-9]&quot;)</code></pre>
+<div id="htmlwidget-322cc176b3ba6bb848ed" style="width:960px;height:100%;" class="str_view html-widget"></div>
+<script type="application/json" data-for="htmlwidget-322cc176b3ba6bb848ed">{"x":{"html":"<ul>\n  <li>Hell, if @realDonaldTrump can be President, Kanye can be President. So can SpongeBob. Sasquatch. The Loch Ness monster. Wait, that could be a citizenship issue. Or we just elect a competent adult like @JoeBiden. https://t.co/WF<span class='match'>5<\/span>dDonSFf<\/li>\n<\/ul>"},"evals":[],"jsHooks":[]}</script>
+<p>Non-digit alphabetic characters can be matched using “\w” or “[a-z]|[A-Z]”. The latter takes advantage of the fact that | acts as an OR operator in regex, similar to how it functions in R.</p>
+<pre class="r"><code>str_view_all(the_tweet, &quot;\\w&quot;)</code></pre>
+<div id="htmlwidget-4dc7a0d817199ab4804d" style="width:960px;height:100%;" class="str_view html-widget"></div>
+<script type="application/json" data-for="htmlwidget-4dc7a0d817199ab4804d">{"x":{"html":"<ul>\n  <li><span class='match'>H<\/span><span class='match'>e<\/span><span class='match'>l<\/span><span class='match'>l<\/span>, <span class='match'>i<\/span><span class='match'>f<\/span> @<span class='match'>r<\/span><span class='match'>e<\/span><span class='match'>a<\/span><span class='match'>l<\/span><span class='match'>D<\/span><span class='match'>o<\/span><span class='match'>n<\/span><span class='match'>a<\/span><span class='match'>l<\/span><span class='match'>d<\/span><span class='match'>T<\/span><span class='match'>r<\/span><span class='match'>u<\/span><span class='match'>m<\/span><span class='match'>p<\/span> <span class='match'>c<\/span><span class='match'>a<\/span><span class='match'>n<\/span> <span class='match'>b<\/span><span class='match'>e<\/span> <span class='match'>P<\/span><span class='match'>r<\/span><span class='match'>e<\/span><span class='match'>s<\/span><span class='match'>i<\/span><span class='match'>d<\/span><span class='match'>e<\/span><span class='match'>n<\/span><span class='match'>t<\/span>, <span class='match'>K<\/span><span class='match'>a<\/span><span class='match'>n<\/span><span class='match'>y<\/span><span class='match'>e<\/span> <span class='match'>c<\/span><span class='match'>a<\/span><span class='match'>n<\/span> <span class='match'>b<\/span><span class='match'>e<\/span> <span class='match'>P<\/span><span class='match'>r<\/span><span class='match'>e<\/span><span class='match'>s<\/span><span class='match'>i<\/span><span class='match'>d<\/span><span class='match'>e<\/span><span class='match'>n<\/span><span class='match'>t<\/span>. <span class='match'>S<\/span><span class='match'>o<\/span> <span class='match'>c<\/span><span class='match'>a<\/span><span class='match'>n<\/span> <span class='match'>S<\/span><span class='match'>p<\/span><span class='match'>o<\/span><span class='match'>n<\/span><span class='match'>g<\/span><span class='match'>e<\/span><span class='match'>B<\/span><span class='match'>o<\/span><span class='match'>b<\/span>. <span class='match'>S<\/span><span class='match'>a<\/span><span class='match'>s<\/span><span class='match'>q<\/span><span class='match'>u<\/span><span class='match'>a<\/span><span class='match'>t<\/span><span class='match'>c<\/span><span class='match'>h<\/span>. <span class='match'>T<\/span><span class='match'>h<\/span><span class='match'>e<\/span> <span class='match'>L<\/span><span class='match'>o<\/span><span class='match'>c<\/span><span class='match'>h<\/span> <span class='match'>N<\/span><span class='match'>e<\/span><span class='match'>s<\/span><span class='match'>s<\/span> <span class='match'>m<\/span><span class='match'>o<\/span><span class='match'>n<\/span><span class='match'>s<\/span><span class='match'>t<\/span><span class='match'>e<\/span><span class='match'>r<\/span>. <span class='match'>W<\/span><span class='match'>a<\/span><span class='match'>i<\/span><span class='match'>t<\/span>, <span class='match'>t<\/span><span class='match'>h<\/span><span class='match'>a<\/span><span class='match'>t<\/span> <span class='match'>c<\/span><span class='match'>o<\/span><span class='match'>u<\/span><span class='match'>l<\/span><span class='match'>d<\/span> <span class='match'>b<\/span><span class='match'>e<\/span> <span class='match'>a<\/span> <span class='match'>c<\/span><span class='match'>i<\/span><span class='match'>t<\/span><span class='match'>i<\/span><span class='match'>z<\/span><span class='match'>e<\/span><span class='match'>n<\/span><span class='match'>s<\/span><span class='match'>h<\/span><span class='match'>i<\/span><span class='match'>p<\/span> <span class='match'>i<\/span><span class='match'>s<\/span><span class='match'>s<\/span><span class='match'>u<\/span><span class='match'>e<\/span>. <span class='match'>O<\/span><span class='match'>r<\/span> <span class='match'>w<\/span><span class='match'>e<\/span> <span class='match'>j<\/span><span class='match'>u<\/span><span class='match'>s<\/span><span class='match'>t<\/span> <span class='match'>e<\/span><span class='match'>l<\/span><span class='match'>e<\/span><span class='match'>c<\/span><span class='match'>t<\/span> <span class='match'>a<\/span> <span class='match'>c<\/span><span class='match'>o<\/span><span class='match'>m<\/span><span class='match'>p<\/span><span class='match'>e<\/span><span class='match'>t<\/span><span class='match'>e<\/span><span class='match'>n<\/span><span class='match'>t<\/span> <span class='match'>a<\/span><span class='match'>d<\/span><span class='match'>u<\/span><span class='match'>l<\/span><span class='match'>t<\/span> <span class='match'>l<\/span><span class='match'>i<\/span><span class='match'>k<\/span><span class='match'>e<\/span> @<span class='match'>J<\/span><span class='match'>o<\/span><span class='match'>e<\/span><span class='match'>B<\/span><span class='match'>i<\/span><span class='match'>d<\/span><span class='match'>e<\/span><span class='match'>n<\/span>. <span class='match'>h<\/span><span class='match'>t<\/span><span class='match'>t<\/span><span class='match'>p<\/span><span class='match'>s<\/span>://<span class='match'>t<\/span>.<span class='match'>c<\/span><span class='match'>o<\/span>/<span class='match'>W<\/span><span class='match'>F<\/span><span class='match'>5<\/span><span class='match'>d<\/span><span class='match'>D<\/span><span class='match'>o<\/span><span class='match'>n<\/span><span class='match'>S<\/span><span class='match'>F<\/span><span class='match'>f<\/span><\/li>\n<\/ul>"},"evals":[],"jsHooks":[]}</script>
+<pre class="r"><code>str_view_all(the_tweet, &quot;[a-z]|[A-Z]&quot;)</code></pre>
+<div id="htmlwidget-589d99f2e1f3542a2548" style="width:960px;height:100%;" class="str_view html-widget"></div>
+<script type="application/json" data-for="htmlwidget-589d99f2e1f3542a2548">{"x":{"html":"<ul>\n  <li><span class='match'>H<\/span><span class='match'>e<\/span><span class='match'>l<\/span><span class='match'>l<\/span>, <span class='match'>i<\/span><span class='match'>f<\/span> @<span class='match'>r<\/span><span class='match'>e<\/span><span class='match'>a<\/span><span class='match'>l<\/span><span class='match'>D<\/span><span class='match'>o<\/span><span class='match'>n<\/span><span class='match'>a<\/span><span class='match'>l<\/span><span class='match'>d<\/span><span class='match'>T<\/span><span class='match'>r<\/span><span class='match'>u<\/span><span class='match'>m<\/span><span class='match'>p<\/span> <span class='match'>c<\/span><span class='match'>a<\/span><span class='match'>n<\/span> <span class='match'>b<\/span><span class='match'>e<\/span> <span class='match'>P<\/span><span class='match'>r<\/span><span class='match'>e<\/span><span class='match'>s<\/span><span class='match'>i<\/span><span class='match'>d<\/span><span class='match'>e<\/span><span class='match'>n<\/span><span class='match'>t<\/span>, <span class='match'>K<\/span><span class='match'>a<\/span><span class='match'>n<\/span><span class='match'>y<\/span><span class='match'>e<\/span> <span class='match'>c<\/span><span class='match'>a<\/span><span class='match'>n<\/span> <span class='match'>b<\/span><span class='match'>e<\/span> <span class='match'>P<\/span><span class='match'>r<\/span><span class='match'>e<\/span><span class='match'>s<\/span><span class='match'>i<\/span><span class='match'>d<\/span><span class='match'>e<\/span><span class='match'>n<\/span><span class='match'>t<\/span>. <span class='match'>S<\/span><span class='match'>o<\/span> <span class='match'>c<\/span><span class='match'>a<\/span><span class='match'>n<\/span> <span class='match'>S<\/span><span class='match'>p<\/span><span class='match'>o<\/span><span class='match'>n<\/span><span class='match'>g<\/span><span class='match'>e<\/span><span class='match'>B<\/span><span class='match'>o<\/span><span class='match'>b<\/span>. <span class='match'>S<\/span><span class='match'>a<\/span><span class='match'>s<\/span><span class='match'>q<\/span><span class='match'>u<\/span><span class='match'>a<\/span><span class='match'>t<\/span><span class='match'>c<\/span><span class='match'>h<\/span>. <span class='match'>T<\/span><span class='match'>h<\/span><span class='match'>e<\/span> <span class='match'>L<\/span><span class='match'>o<\/span><span class='match'>c<\/span><span class='match'>h<\/span> <span class='match'>N<\/span><span class='match'>e<\/span><span class='match'>s<\/span><span class='match'>s<\/span> <span class='match'>m<\/span><span class='match'>o<\/span><span class='match'>n<\/span><span class='match'>s<\/span><span class='match'>t<\/span><span class='match'>e<\/span><span class='match'>r<\/span>. <span class='match'>W<\/span><span class='match'>a<\/span><span class='match'>i<\/span><span class='match'>t<\/span>, <span class='match'>t<\/span><span class='match'>h<\/span><span class='match'>a<\/span><span class='match'>t<\/span> <span class='match'>c<\/span><span class='match'>o<\/span><span class='match'>u<\/span><span class='match'>l<\/span><span class='match'>d<\/span> <span class='match'>b<\/span><span class='match'>e<\/span> <span class='match'>a<\/span> <span class='match'>c<\/span><span class='match'>i<\/span><span class='match'>t<\/span><span class='match'>i<\/span><span class='match'>z<\/span><span class='match'>e<\/span><span class='match'>n<\/span><span class='match'>s<\/span><span class='match'>h<\/span><span class='match'>i<\/span><span class='match'>p<\/span> <span class='match'>i<\/span><span class='match'>s<\/span><span class='match'>s<\/span><span class='match'>u<\/span><span class='match'>e<\/span>. <span class='match'>O<\/span><span class='match'>r<\/span> <span class='match'>w<\/span><span class='match'>e<\/span> <span class='match'>j<\/span><span class='match'>u<\/span><span class='match'>s<\/span><span class='match'>t<\/span> <span class='match'>e<\/span><span class='match'>l<\/span><span class='match'>e<\/span><span class='match'>c<\/span><span class='match'>t<\/span> <span class='match'>a<\/span> <span class='match'>c<\/span><span class='match'>o<\/span><span class='match'>m<\/span><span class='match'>p<\/span><span class='match'>e<\/span><span class='match'>t<\/span><span class='match'>e<\/span><span class='match'>n<\/span><span class='match'>t<\/span> <span class='match'>a<\/span><span class='match'>d<\/span><span class='match'>u<\/span><span class='match'>l<\/span><span class='match'>t<\/span> <span class='match'>l<\/span><span class='match'>i<\/span><span class='match'>k<\/span><span class='match'>e<\/span> @<span class='match'>J<\/span><span class='match'>o<\/span><span class='match'>e<\/span><span class='match'>B<\/span><span class='match'>i<\/span><span class='match'>d<\/span><span class='match'>e<\/span><span class='match'>n<\/span>. <span class='match'>h<\/span><span class='match'>t<\/span><span class='match'>t<\/span><span class='match'>p<\/span><span class='match'>s<\/span>://<span class='match'>t<\/span>.<span class='match'>c<\/span><span class='match'>o<\/span>/<span class='match'>W<\/span><span class='match'>F<\/span>5<span class='match'>d<\/span><span class='match'>D<\/span><span class='match'>o<\/span><span class='match'>n<\/span><span class='match'>S<\/span><span class='match'>F<\/span><span class='match'>f<\/span><\/li>\n<\/ul>"},"evals":[],"jsHooks":[]}</script>
+<p>Finally, whitespace can be matched using “\s”</p>
+<pre class="r"><code>str_view_all(the_tweet, &quot;\\s&quot;)</code></pre>
+<div id="htmlwidget-d0a38dc7fa366e5b68eb" style="width:960px;height:100%;" class="str_view html-widget"></div>
+<script type="application/json" data-for="htmlwidget-d0a38dc7fa366e5b68eb">{"x":{"html":"<ul>\n  <li>Hell,<span class='match'> <\/span>if<span class='match'> <\/span>@realDonaldTrump<span class='match'> <\/span>can<span class='match'> <\/span>be<span class='match'> <\/span>President,<span class='match'> <\/span>Kanye<span class='match'> <\/span>can<span class='match'> <\/span>be<span class='match'> <\/span>President.<span class='match'> <\/span>So<span class='match'> <\/span>can<span class='match'> <\/span>SpongeBob.<span class='match'> <\/span>Sasquatch.<span class='match'> <\/span>The<span class='match'> <\/span>Loch<span class='match'> <\/span>Ness<span class='match'> <\/span>monster.<span class='match'> <\/span>Wait,<span class='match'> <\/span>that<span class='match'> <\/span>could<span class='match'> <\/span>be<span class='match'> <\/span>a<span class='match'> <\/span>citizenship<span class='match'> <\/span>issue.<span class='match'> <\/span>Or<span class='match'> <\/span>we<span class='match'> <\/span>just<span class='match'> <\/span>elect<span class='match'> <\/span>a<span class='match'> <\/span>competent<span class='match'> <\/span>adult<span class='match'> <\/span>like<span class='match'> <\/span>@JoeBiden.<span class='match'> <\/span>https://t.co/WF5dDonSFf<\/li>\n<\/ul>"},"evals":[],"jsHooks":[]}</script>
+<p>This is just the tip of the iceberg in terms of regular expressions, which also include things such as quantifiers (how many of a pattern should you allow?), anchors (do you want to only match the beggining of a string? The end?) and much else. Included in the Cheatsheets folder of this project is a <strong>stringr</strong> cheatsheet with a full page on regular expressions. That, and searching CodeOverflow/Google, will be your friends when putting together regular expressions.</p>
+</div>
+<div id="string-detection-and-subsetting" class="section level1">
+<h1>String detection and subsetting</h1>
+<p>The payoff to learning regular expressions is their ability to be used in conjunction with <strong>stringr</strong> commands to search for, subset, and extract text. For example, let’s use the <code>str_detect()</code> command, which returns a TRUE or FALSE depending on whether a pattern is contained in a particular string, to see if any other members of Congress were tweeting about SpongeBob during this time period.</p>
 <pre class="r"><code>house_tweets %&gt;% 
   filter(str_detect(text, &quot;[Ss]ponge[Bb]ob&quot;)) %&gt;%
   select(text)</code></pre>
@@ -331,46 +365,128 @@ house_tweets %&gt;%
 ##   &lt;chr&gt;                                                                         
 ## 1 Hell, if @realDonaldTrump can be President, Kanye can be President. So can Sp~
 ## 2 RT @jzembik: .@AOC just now in an Instagram live: “you all know that SpongeBo~</code></pre>
+<p>In addition to appearing a discussion about the Kanye candidacy, AOC apparently references a SpongeBob meme at some point. Good to know!</p>
+<p>What about some of our other friends from the original tweet? Is anyone else tweeting about the Loch Ness monster, for instance?</p>
 <pre class="r"><code>house_tweets %&gt;% 
-  filter(str_detect(text, regex(&quot;kendrick&quot;, ignore_case = TRUE))) %&gt;% 
+  filter(str_detect(text, &quot;[Ll]och [Nn]ess&quot;)) %&gt;%
   select(text)</code></pre>
-<pre><code>## # A tibble: 34 x 1
-##    text                                                                         
-##    &lt;chr&gt;                                                                        
-##  1 &quot;Don’t mess with @CindyKendrick11 before her coffee.  Did you try @DoYouCOVF~
-##  2 &quot;This is Kendrick Harrison, an Iraq War Veteran &amp;amp; father from Las Vegas.~
-##  3 &quot;The House passed my bill to overturn the DeVos 2019 Borrower Defense rule, ~
-##  4 &quot;This is Kendrick Harrison. An Iraq War Veteran and father from Las Vegas. \~
-##  5 &quot;Kendrick, thank you for all you’ve done for defrauded students and veterans~
-##  6 &quot;RT @kendrick38: Aaaaaaaye \U0001f525\U0001f64c\U0001f3fd\U0001f4af @BernieS~
-##  7 &quot;Y&#39;all come out now to hear what your most-excellent state representatives a~
-##  8 &quot;A huge shout out to Kendrick Harrison, an Iraq War veteran from NV who was ~
-##  9 &quot;I want to thank Dr. Richard Stone at the Veterans’ Health Administration, D~
-## 10 &quot;@MarkWarner\n@timkaine @JenniferBoysko Mayor Burk of @TownofLeesburg\n@Fair~
-## # ... with 24 more rows</code></pre>
+<pre><code>## # A tibble: 2 x 1
+##   text                                                                          
+##   &lt;chr&gt;                                                                         
+## 1 &quot;Hell, if @realDonaldTrump can be President, Kanye can be President. So can S~
+## 2 &quot;\&quot;Proof of systematic fraud has become the Loch Ness Monster of the Republic~</code></pre>
+<p>Voter fraud as the Loch Ness Monster of the Republican Party – nice to see such apt use of metaphors by our Congressional friends.</p>
+<p>In these examples, we’ve been trying to manually get around the requirement for matching capitalization by providing a couple plausible alternatives. However, a more general way of accomplishing this is wrapping the character string we’re searching on in the <code>regex()</code> command and specifying the argument <code>ignore_case = TRUE</code>. Doing so means the regex will ignore capitalization when searching for matches. For instance, to search for all mentions of Kanye West, capitalization ignored, we could do the following:</p>
+<pre class="r"><code>house_tweets %&gt;% 
+  filter(str_detect(text, regex(&quot;kanye west&quot;, ignore_case = TRUE))) %&gt;% 
+  select(text)</code></pre>
+<pre><code>## # A tibble: 8 x 1
+##   text                                                                          
+##   &lt;chr&gt;                                                                         
+## 1 &quot;RT @RyanAFournier: Kanye West just announced today that he will cast his fir~
+## 2 &quot;RT @RyanAFournier: Kanye West donated $2 million to the families of George F~
+## 3 &quot;The thing about this Kanye West news is that 1 in 5 American workers will se~
+## 4 &quot;Is this GOP operative the woman who turned in Kanye West’s nomination papers~
+## 5 &quot;So who’s the bigger loser? Kanye running to try to help his buddy Trump or t~
+## 6 &quot;The @GOP is running scared &amp;amp; playing dangerous games with our democracy ~
+## 7 &quot;RT @BreitbartNews: Democrats are worried about Kanye West being on the ballo~
+## 8 &quot;Oh look, Jared Kushner, Kanye West and @GOP are so incompetent they can’t ev~</code></pre>
+<p>Looks like Kanye’s more popular than Spongebob or the Loch Ness Monster among this group!</p>
+<p>A related command to <code>str_detect</code> is <code>str_extract</code>, which returns not just TRUE or FALSE but also provides the matching characters itself. For instance, let’s use <code>str_extract</code> to pull out all instances of Kanye or Kendrick Lamar being referenced in Congressional tweets, and put the matches into a table to compare.</p>
 <pre class="r"><code>house_tweets %&gt;%
   pull(text) %&gt;%
-  str_extract(regex(&quot;kanye|kendricklamar|kendrick lamar&quot;, ignore_case = TRUE)) %&gt;%
+  str_extract(regex(&quot;kanye|kendrick lamar&quot;, ignore_case = TRUE)) %&gt;%
   na.exclude() %&gt;%
   table()</code></pre>
 <pre><code>## .
 ##          kanye          Kanye Kendrick Lamar 
 ##             10             18              1</code></pre>
-<pre class="r"><code>dir(&quot;Data&quot;)</code></pre>
-<pre><code>## [1] &quot;ccl.txt&quot;                                             
-## [2] &quot;Correlates of State Policy (v2.6).csv&quot;               
-## [3] &quot;Correlates of State Policy (v2.6).fst&quot;               
-## [4] &quot;Correlates of State Policy (v2.6).Rda&quot;               
-## [5] &quot;House Tweets.Rda&quot;                                    
-## [6] &quot;Individual Contributions (House Representatives).Rda&quot;
-## [7] &quot;Individual Contributions (Merged).fst&quot;               
-## [8] &quot;Members to Filter.Rda&quot;                               
-## [9] &quot;webl20.txt&quot;</code></pre>
+<p>It appears that members of Congress are bigger fans of Kanye’s classic soul-sampling Chicago style than Kendrick’s unapologetic West Coast rap.<a href="#fn2" class="footnote-ref" id="fnref2"><sup>2</sup></a></p>
+<p>One last point to make about what using the <code>str_extract</code> command and regex – this provides a third way to accomplish our goal from above of extracting solely the district number from the <code>state_district</code> variable. If we pass the command a regex asking it to match two numeric digits, it returns the following:</p>
+<pre class="r"><code>house_tweets %&gt;%
+  pull(state_district) %&gt;%
+  str_extract(&quot;[0-9][0-9]&quot;) </code></pre>
+<pre><code>##  [1] &quot;10&quot; &quot;20&quot; &quot;20&quot; &quot;13&quot; &quot;01&quot; &quot;02&quot; &quot;02&quot; &quot;17&quot; &quot;29&quot; &quot;29&quot; &quot;13&quot; &quot;03&quot; &quot;03&quot; &quot;12&quot; &quot;17&quot;
+## [16] &quot;05&quot; &quot;05&quot; &quot;32&quot; &quot;02&quot; &quot;01&quot; &quot;01&quot; &quot;07&quot; &quot;17&quot; &quot;17&quot;
+##  [ reached getOption(&quot;max.print&quot;) -- omitted 502728 entries ]</code></pre>
+<p>As before, there’s more that can be done with the <strong>stringr</strong> package, and I encourage you to look both at the cheatsheet as well as <a href="https://r4ds.had.co.nz/strings.html">the relevant chapter of “Data Science with R”</a>.</p>
 </div>
-<div id="working-with-dates" class="section level1">
-<h1>Working with dates</h1>
+<div id="working-with-dates-and-times" class="section level1">
+<h1>Working with dates and times</h1>
+<p>The last special data type we’ll cover are date-times. Dates and/or times times appear frequently in data, but often take some cleaning or manipulation to get in the form we want them – often, as “Date” or “DateTime” objects in R. The payoff to spending the time doing so is that mathematical operations using these objects is possible, and often useful. For example, notice that the <code>date</code> variable in our dataset is already formatted as a date. what’s the range of tweet dates in our dataset?</p>
 <pre class="r"><code>range(house_tweets$date)</code></pre>
 <pre><code>## [1] &quot;2020-01-02&quot; &quot;2020-11-02&quot;</code></pre>
+<p>As mentioned, we have tweets ranging from the beginning of January to election day in November. We can use several standard mathematical operators such as min, max, +, and - when dealing with dates. For instance, to determine how many days of tweets are included in our data, we could write the following:</p>
+<pre class="r"><code>max(house_tweets$date) - min(house_tweets$date)</code></pre>
+<pre><code>## Time difference of 305 days</code></pre>
+<p>The tricky part is often coercing character strings formatted in a variety of different ways into date objects. Here, we can take advantage of special commands found in the <strong>lubridate</strong> package, which isn’t part of the core <strong>Tidyverse</strong> packages (and thus has to be loaded separately), but is often considered part of the same broad family. Let’s begin by loading the package.</p>
+<pre class="r"><code>library(lubridate)</code></pre>
+<pre><code>## 
+## Attaching package: &#39;lubridate&#39;</code></pre>
+<pre><code>## The following objects are masked from &#39;package:base&#39;:
+## 
+##     date, intersect, setdiff, union</code></pre>
+<p>For converting character strings into Date objects, <strong>lubridate</strong> has a trio of commands where year, month, and day can be specified in various orders: <code>ymd()</code>, <code>mdy()</code>, and <code>dmy()</code>. Supposing we had a text version of election day, we could convert it to a Date object as follows:</p>
+<pre class="r"><code>election_day &lt;- ymd(&quot;2020-11-02&quot;)
+
+class(election_day)</code></pre>
+<pre><code>## [1] &quot;Date&quot;</code></pre>
+<pre class="r"><code>election_day</code></pre>
+<pre><code>## [1] &quot;2020-11-02&quot;</code></pre>
+<p>In a second format:</p>
+<pre class="r"><code>mdy(&quot;November 2nd, 2020&quot;)</code></pre>
+<pre><code>## [1] &quot;2020-11-02&quot;</code></pre>
+<p>Or a third:</p>
+<pre class="r"><code>dmy(&quot;2/Nov/2020&quot;)</code></pre>
+<pre><code>## [1] &quot;2020-11-02&quot;</code></pre>
+<p>These commands are very intuitive, and the vast majority of the time you should be able to get them to recognize the intended date. If strings need to be manipulated somewhat to address a difficult case, the tools from <strong>stringr</strong> covered above come in handy.</p>
+<p>Another not uncommon scenario to run across is when different components of a date or time are spread across multiple columns. For instance, consider the following toy dataset on times polls close across state:</p>
+<pre class="r"><code>polls_close &lt;- tibble(
+ State = c(&quot;TX&quot;, &quot;NY&quot;),
+ Year = c(2020, 2020),
+ Month = c(11, 11),
+ Day = c(2, 2),
+ Hour = c(20, 19),
+ Minute = c(0, 0)
+)
+
+polls_close</code></pre>
+<pre><code>## # A tibble: 2 x 6
+##   State  Year Month   Day  Hour Minute
+##   &lt;chr&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;  &lt;dbl&gt;
+## 1 TX     2020    11     2    20      0
+## 2 NY     2020    11     2    19      0</code></pre>
+<p>To extract the Date and Datetime</p>
+<pre class="r"><code>mutate(polls_close,
+       Date = make_date(Year, Month, Day),
+       DateTime = make_datetime(Year, Month, Day, Hour, Minute))</code></pre>
+<pre><code>## # A tibble: 2 x 8
+##   State  Year Month   Day  Hour Minute Date       DateTime           
+##   &lt;chr&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;  &lt;dbl&gt; &lt;date&gt;     &lt;dttm&gt;             
+## 1 TX     2020    11     2    20      0 2020-11-02 2020-11-02 20:00:00
+## 2 NY     2020    11     2    19      0 2020-11-02 2020-11-02 19:00:00</code></pre>
+<p>Another useful tool are the built in commands for converting dates to differrent components, such as month or weekday. For example, the <code>wday()</code> command converts a date into a week day. Let’s apply this command to the <code>date</code> variable in our tweet dataframe. When are members of Congress tweeting? Is this a seven days a week activity?</p>
+<pre class="r"><code>house_tweets %&gt;%
+  pull(date) %&gt;%
+  wday(label = TRUE) %&gt;%
+  janitor::tabyl()</code></pre>
+<pre><code>##    .     n    percent
+##  Sun 34770 0.06915935
+##  Mon 69859 0.13895320
+##  Tue 83955 0.16699088
+##  Wed 93171 0.18532199
+##  Thu 91044 0.18109127
+##  Fri 84956 0.16898192
+##  Sat 44997 0.08950138</code></pre>
+<p>In the pipeline above, I use the <code>tabyl()</code> command from the <strong>janitor</strong> package (not included in the <strong>tidyverse</strong>, but also a useful package) to get the percentages as well as the counts in the table. As we can see, members of Congress appear to consider social media activity work as opposed to recreation, and tend to take the weekends off (and start slow on Monday as well!).</p>
+<p>As with <strong>stringr</strong> and regular expressions, I’ve only scratched the surface of what can be done with dates and times. That said, hopefully I’ve convinced you that the simple commands from the <strong>lubridate</strong> package are a powerful tool for coercing messy character strings into a well-behaved Date or DateObject that can then be used for all sorts of interesting analysis. In the next portion of the workshop, we’ll begin to touch on the very initial portions of a data analysis – data visualization using <strong>ggplot2</strong>.</p>
+</div>
+<div class="footnotes">
+<hr />
+<ol>
+<li id="fn1"><p>A common theme when working with text data is that there are multiple ways to get to the same point. This is worth remembering if a particular approach is causing problems, as thorny text manipulation problems often do. Step back, and consider alternative methods.<a href="#fnref1" class="footnote-back">↩︎</a></p></li>
+<li id="fn2"><p>Sadly, my efforts to find any references to Lil Wayne in Congressional tweets were in vain.<a href="#fnref2" class="footnote-back">↩︎</a></p></li>
+</ol>
 </div>
 
 

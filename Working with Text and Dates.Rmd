@@ -9,7 +9,7 @@ output:
 
 ```{r echo=FALSE}
 options(scipen = 999,
-        max.print = 20)
+        max.print = 24)
 ```
 
 # Introduction
@@ -220,11 +220,85 @@ house_tweets %>%
   pull(state_district) %>%
   str_extract("[0-9][0-9]") 
 ```
-As before, there's more that can be done with the **stringr** package, and I encourage you to look both at the cheatsheet as well as the relevant chapter of "Data Science with R"
+As before, there's more that can be done with the **stringr** package, and I encourage you to look both at the cheatsheet as well as [the relevant chapter of "Data Science with R"](https://r4ds.had.co.nz/strings.html).
 
-# Working with dates
+# Working with dates and times
+
+The last special data type we'll cover are date-times. Dates and/or times times appear frequently in data, but often take some cleaning or manipulation to get in the form we want them -- often, as "Date" or "DateTime" objects in R. The payoff to spending the time doing so is that mathematical operations using these objects is possible, and often useful. For example, notice that the `date` variable in our dataset is already formatted as a date. what's the range of tweet dates in our dataset? 
 
 ```{r}
 range(house_tweets$date)
 ```
+
+As mentioned, we have tweets ranging from the beginning of January to election day in November. We can use several standard mathematical operators such as min, max, +, and - when dealing with dates. For instance, to determine how many days of tweets are included in our data, we could write the following:
+
+```{r}
+max(house_tweets$date) - min(house_tweets$date)
+```
+
+The tricky part is often coercing character strings formatted in a variety of different ways into date objects. Here, we can take advantage of special commands found in the **lubridate** package, which isn't part of the core **Tidyverse** packages (and thus has to be loaded separately), but is often considered part of the same broad family. Let's begin by loading the package.
+
+```{r}
+library(lubridate)
+```
+
+For converting character strings into Date objects, **lubridate** has a trio of commands where year, month, and day can be specified in various orders: `ymd()`, `mdy()`, and `dmy()`. Supposing we had a text version of election day, we could convert it to a Date object as follows:
+
+```{r}
+election_day <- ymd("2020-11-02")
+
+class(election_day)
+election_day
+```
+
+In a second format:
+
+```{r}
+mdy("November 2nd, 2020")
+```
+
+Or a third:
+
+```{r}
+dmy("2/Nov/2020")
+```
+
+These commands are very intuitive, and the vast majority of the time you should be able to get them to recognize the intended date. If strings need to be manipulated somewhat to address a difficult case, the tools from **stringr** covered above come in handy.
+
+Another not uncommon scenario to run across is when different components of a date or time are spread across multiple columns. For instance, consider the following toy dataset on times polls close across state:
+
+```{r}
+polls_close <- tibble(
+ State = c("TX", "NY"),
+ Year = c(2020, 2020),
+ Month = c(11, 11),
+ Day = c(2, 2),
+ Hour = c(20, 19),
+ Minute = c(0, 0)
+)
+
+polls_close
+```
+
+To extract the Date and Datetime
+
+```{r}
+mutate(polls_close,
+       Date = make_date(Year, Month, Day),
+       DateTime = make_datetime(Year, Month, Day, Hour, Minute))
+```
+
+Another useful tool are the built in commands for converting dates to differrent components, such as month or weekday. For example, the `wday()` command converts a date into a week day. Let's apply this command to the `date` variable in our tweet dataframe. When are members of Congress tweeting? Is this a seven days a week activity?
+
+```{r}
+house_tweets %>%
+  pull(date) %>%
+  wday(label = TRUE) %>%
+  janitor::tabyl()
+```
+
+In the pipeline above, I use the `tabyl()` command from the **janitor** package (not included in the **tidyverse**, but also a useful package) to get the percentages as well as the counts in the table. As we can see, members of Congress appear to consider social media activity work as opposed to recreation, and tend to take the weekends off (and start slow on Monday as well!).
+
+As with **stringr** and regular expressions, I've only scratched the surface of what can be done with dates and times. That said, hopefully I've convinced you that the simple commands from the **lubridate** package are a powerful tool for coercing messy character strings into a well-behaved Date or DateObject that can then be used for all sorts of interesting analysis. In the next portion of the workshop, we'll begin to touch on the very initial portions of a data analysis -- data visualization using **ggplot2**.
+
 
