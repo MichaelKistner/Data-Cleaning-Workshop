@@ -8,7 +8,8 @@ output:
 ---
 
 ```{r echo=FALSE}
-options(scipen = 999)
+options(scipen = 999,
+        max.print = 20)
 ```
 
 # Introduction
@@ -19,10 +20,129 @@ As before, let's load the **tidyverse** package and get started.
 library(tidyverse)
 ```
 
-# Text
+# String manipulation
 
 ```{r}
 load("Data/House Tweets.Rda")
+
+house_tweets <- house_tweets %>%
+  setNames(c("name", "state", "district", "date", "text", "source")) %>%
+  select(-source) %>%
+  as_tibble()
 ```
 
+```{r}
+str_c("Learning how to",
+      "clean data with the tidyverse")
+```
+
+```{r}
+str_c("Learning how to",
+      "clean data with the tidyverse",
+      sep = " ")
+```
+
+```{r}
+house_tweets <- house_tweets %>%
+  mutate(state_district = str_c(state, district, sep = "-"))
+
+house_tweets %>%
+  select(name, state, district, state_district)
+```
+
+```{r}
+house_tweets <- house_tweets %>% 
+  mutate(district_full = str_pad(district, 
+                                 width = 2, 
+                                 side = "left",
+                                 pad = "0"),
+         state_district = str_c(state, district_full, sep = "-"))
+
+house_tweets %>%
+  select(name, state, district_full, state_district)
+```
+
+```{r}
+str_split(house_tweets$state_district, "-", simplify = TRUE)
+```
+
+```{r}
+str_sub(house_tweets$state_district, 1, 2)
+str_sub(house_tweets$state_district, 4, 5)
+```
+
+
+```{r}
+house_tweets %>%
+  mutate(name_lower = str_to_lower(name),
+         name_title = str_to_title(name)) %>%
+  select(name, name_lower, name_title)
+```
+
+# Regular expressions
+
+```{r}
+the_tweet <- house_tweets$text[str_detect(house_tweets$text, "Sasquatch") & str_detect(house_tweets$text, "SpongeBob")]
+```
+
+```{r}
+the_tweet
+```
+
+```{r}
+str_view(the_tweet, "SpongeBob")
+```
+```{r}
+str_view(the_tweet, "spongebob")
+```
+
+```{r}
+str_view(the_tweet, "Sponge...")
+```
+```{r}
+str_view(the_tweet, "\\.")
+```
+```{r}
+str_view_all(the_tweet, "\\.")
+```
+
+```{r}
+str_view_all(the_tweet, "\\d")
+str_view_all(the_tweet, "\\s")
+```
+
+
+```{r}
+str_view_all(the_tweet, "[ab]")
+```
+
+```{r}
+house_tweets %>% 
+  filter(str_detect(text, "Loch Ness")) %>%
+  select(text)
+```
+
+```{r}
+house_tweets %>% 
+  filter(str_detect(text, "[Ss]ponge[Bb]ob")) %>%
+  select(text)
+```
+
+```{r}
+house_tweets %>% 
+  filter(str_detect(text, regex("kendrick", ignore_case = TRUE))) %>% View()
+  select(text)
+```  
+
+```{r}
+house_tweets %>%
+  pull(text) %>%
+  str_extract(regex("kanye|kendricklamar|kendrick lamar", ignore_case = TRUE)) %>%
+  na.exclude() %>%
+  table()
+```
+
+```{r}
+dir("Data")
+```
 
