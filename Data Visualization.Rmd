@@ -1,0 +1,317 @@
+---
+title: "Data Visualization"
+author: "Michael Kistner"
+date: "May 16, 2022"
+output: 
+  html_document:
+    toc: true
+---
+
+```{r echo=FALSE}
+options(scipen = 999,
+        max.print = 24)
+```
+
+# Introduction
+
+The final portion of our data cleaning workshop will cover the basics of data visualization using **ggplot2*, the most powerful and commonly used data visualization engine for R. While data visualization plays a larger role in steps 4 and 5 of the research process (Analyze Data; Share Findings), it can also be an important element of data cleaning and transformation as well. Plotting your data can allow you to discover outliers that should be investigated further, skewed distributions that should be logged or altered, clusters or patterns that indicate a grouping that you haven't yet considered. In reality, the linear process detailed in the Project and Data Organization section tends to be more circular and iterative. Frequently analysis and sharing will lead to further necessary data cleaning and transformation. 
+
+One more time, let's load the **tidyverse** package up and dive in.
+
+```{r}
+library(tidyverse)
+```
+
+# Visualizing distributions of single variables
+
+One of the first steps in understanding the data you have collected is visualizing the distribution of key variables. What do the key data look like? To consider an example, let's load the `house_tweets` dataframe.
+
+```{r}
+load("Data/House Tweets.Rda")
+```
+
+A natural first question is to determine whether members of Congress are tweeting in roughly equal amounts, or if some are more prodigious social media users than others.
+
+To answer this question, we'll need to first group our tweet dataframe at the representative level, and count the number of tweets per member. We do so using `group_by()` and `summarize()`. For the summary statistic, we'll use the `n()` function from **dplyr**, which counts the number of observations (tweet) per group (representative).^[Here and throughout this notebook, anytime I transform data to use for plotting, I save it as a `graphing_data` dataframe. I like this workflow because it's consistent and easy to remember, and it's fine to repeatedly create new versions of a similarly named object when the object's sole purpose is to be used one or a couple of times to construct a graph.]
+
+```{r}
+graphing_data <- house_tweets %>%
+  group_by(name) %>%
+  summarize(n_tweets = n()) 
+
+graphing_data %>%
+  arrange(desc(n_tweets))
+```
+
+As you may have suspected, a few Twit-ophiles are indeed tweeting considerably more than most members. Still, while the table format shown above provides some information, a preferable way to view the entire distribution is to use a histogram.
+
+This brings us to the one function that is the lone workhorse of the **ggplot2** library, the `ggplot()` command itself. The nice thing about the `ggplot` command is that, regardless of what graph we want to create, the syntax is going to be identical. For any graph we'll need to specify:
+
+- The dataframe containing the variables we're using
+- Which variables to put along which axis (the **aesthetic mapping**)
+- The type of graph (**geom**) we want to create
+
+Let's demonstrate using the histogram. We begin by using the `ggplot` command. The first argument is the dataframe name, the second argument is `aes()`, with the variable name for each axis specified, and then we add an additional graph element (the geom). Each line, or part of the `ggplot()` command, is separated with the plus sign.^[A common mistake -- mixing up +'s and %>%'s when reshaping and graphing data. Be careful!] Since a histogram is a graph of only a single variable, we specify that the x-axis should contain the n_tweets variable put into bins. `ggplot()` knows that the y-axis should be a count for a histogram.
+
+```{r}
+ggplot(graphing_data,
+       aes(x = n_tweets)) +
+  geom_histogram()
+```
+
+This histogram is informative, and shows us a right-skewed distribution as we would suspect. However, there's a few things we can do to clean this plot up. First, we can address the warning **ggplot** is giving us by specifying the bins manually. Second, we can add cleaner, more readable labels using the `labs()` argument. Finally, I always like using the `theme_bw()` theme, which uses a clean black and white theme for plots.
+
+
+```{r}
+ggplot(graphing_data,
+       aes(x = n_tweets)) +
+  geom_histogram(bins = 50) +
+  labs(x = "Number of Tweets",
+       y = "Count") +
+  theme_bw()
+```
+
+A bit neater looking! 
+
+An alternative to the histogram is a density plot, which displays a smoothed version of the histogram that's particularly useful when the number of observations is high. To create the density plot, all we have to is use the `geom_dens()` geom instead of the `geom_histogram()` geom.
+
+```{r}
+ggplot(graphing_data,
+       aes(x = n_tweets)) +
+  geom_density() +
+  labs(x = "Number of Tweets",
+       y = "Density") +
+  theme_bw()
+```
+
+We can make the density curve more visually appealing by adding some color to our graph. Let's add the optional arguments `fill()` (a fill color for the graph) and `alpha()`, a number between 1 and 0 indicating how transparent the object should be.
+
+```{r}
+ggplot(graphing_data,
+       aes(x = n_tweets)) +
+  geom_density(fill = "navy", alpha = 0.4) +
+  labs(x = "Number of Tweets",
+       y = "Count") +
+  theme_bw()
+```
+
+An alternative way to visualize the distribution of a variable across a small number of distinct categories is by using a bar chart. For example, let's return to the question of how tweets are distributed across weekdays. Once again, let's use the `wday()` command from the **lubridate** package to convert our date variable into a weekday using mutate. Next, let's group by weekday and summarize the number of tweets. Finally, let's use mutate once more to convert the raw number into a percent, by dividing by the sum total of tweets. 
+
+```{r}
+graphing_data <- house_tweets %>%
+  mutate(weekday = lubridate::wday(date, label = TRUE)) %>%
+  group_by(weekday) %>%
+  summarize(n_tweets = n()) %>%
+  mutate(pct_tweets = n_tweets / sum(n_tweets))
+
+graphing_data
+```
+
+With this modified dataframe in hand, we now have everything we need to create a bar plot. Let's put `weekday` on the x-axis and `pct_tweets` on the y-axis. Then, let's use the `geom_col` command to create the bars.^[There's actually a `geom_bar()` geom as well. `geom_bar()` is much more restricted in what it can do and less intuitive, while the `geom_col()` command can work in every case that the`geom_bar()` does and more. For that reason, I recommend just sticking with `geom_col()`.]
+
+```{r}
+ggplot(graphing_data,
+       aes(x = weekday, y = pct_tweets)) + 
+  geom_col() +
+  labs(x = "Day Tweet Was Posted",
+       y = "Percent of Total Tweets") +
+  theme_bw() 
+```
+
+Using this visualization, the relationship between day of the week and Twitter activity is clear. Tweets are most common on Wednesday's and decline from that point on, with tweets on weekends being particularly sparse.
+
+# Visualizing relationships between multiple variables
+
+```{r}
+graphing_data <- house_tweets %>%
+  group_by(date) %>%
+  summarize(n_tweets = n())
+
+graphing_data
+```
+
+```{r}
+ggplot(graphing_data,
+       aes(x = date, y = n_tweets)) +
+  geom_line() +
+  labs(x = "Date",
+       y = "Number of Tweets Posted") +
+  theme_bw()
+```
+
+```{r}
+graphing_data <- house_tweets %>%
+  mutate(week = lubridate::week(date))
+
+graphing_data %>%
+  select(date, week)
+```
+
+```{r}
+graphing_data <- house_tweets %>%
+  mutate(week = lubridate::week(date)) %>%
+  group_by(week) %>%
+  summarize(n_tweets = n())
+```
+
+```{r}
+ggplot(graphing_data,
+       aes(x = week, y = n_tweets)) +
+  geom_line() +
+  labs(x = "Week of 2020",
+       y = "Number of Tweets Posted") +
+  theme_bw()
+```
+
+```{r message=FALSE, warning=FALSE}
+graphing_data <- house_tweets %>%
+  group_by(name, state) %>%
+  summarize(n_tweets = n()) %>%
+  group_by(state) %>%
+  summarize(av_tweets = mean(n_tweets))
+
+graphing_data %>%
+  arrange(desc(av_tweets))
+```
+
+```{r}
+ggplot(graphing_data,
+       aes(x = state, y = av_tweets)) +
+  geom_col() +
+  coord_flip() +
+  labs(x = NULL, y = "Average Number of Tweets \n per Representative") +
+  theme_bw()
+```
+```{r}
+class(graphing_data$state)
+
+graphing_data <- graphing_data %>%
+  mutate(state = fct_reorder(state, av_tweets))
+
+class(graphing_data$state)
+```
+```{r, fig.height=7, fig.width=5}
+ggplot(graphing_data,
+       aes(x = state, y = av_tweets)) +
+  geom_col() +
+  coord_flip() +
+  labs(x = NULL, y = "Average Number of Tweets \n per Representative") +
+  theme_bw()
+```
+
+```{r}
+load("Data/Correlates of State Policy (v2.6).Rda")
+
+csp <- csp %>% 
+  filter(year == 2010)
+```
+
+```{r}
+ggplot(csp,
+       aes(x = povrate, y = medicaid_tot_pct)) +
+  geom_point() + 
+  labs(x = "Poverty Rate", y = "Medicaid Spending \n (% of Budget)") +
+  theme_bw()
+```
+
+```{r}
+ggplot(csp,
+       aes(x = povrate, y = medicaid_tot_pct)) +
+  geom_point() + 
+  geom_smooth(method = "lm") +
+  labs(x = "Poverty Rate", 
+       y = "Medicaid Spending \n (% of Budget)") +
+  theme_bw()
+```
+
+```{r}
+graphing_data <- csp %>%
+  mutate(party_control = case_when(
+    dem_unified == 1 ~ "Democrat",
+    rep_unified == 1 ~ "Republican",
+    TRUE ~ "Divided")
+  )
+```
+
+```{r}
+ggplot(graphing_data,
+       aes(x = povrate, y = medicaid_tot_pct)) +
+  geom_point(aes(color = party_control)) + 
+  labs(x = "Poverty Rate", 
+       y = "Medicaid Spending \n (% of Budget)",
+       color = NULL) +
+  theme_bw()
+```
+```{r}
+ggplot(graphing_data,
+       aes(x = povrate, y = medicaid_tot_pct)) +
+  geom_point(aes(color = party_control)) + 
+  scale_color_manual(values = c("Navy", "Plum", "DarkRed")) +
+  labs(x = "Poverty Rate", 
+       y = "Medicaid Spending \n (% of Budget)",
+       color = NULL) +
+  theme_bw()
+```
+
+```{r}
+ggplot(graphing_data,
+       aes(x = povrate, y = medicaid_tot_pct)) +
+  geom_point(aes(color = party_control)) + 
+  geom_smooth(method = "lm") +
+  scale_color_manual(values = c("Navy", "Plum", "DarkRed")) +
+  facet_wrap(~party_control,
+             nrow = 2) +
+  labs(x = "Poverty Rate", 
+       y = "Medicaid Spending \n (% of Budget)",
+       color = NULL) +
+  theme_bw()
+```
+
+# Displaying statistical summaries
+
+```{r}
+ggplot(graphing_data,
+       aes(x = party_control, y = medicaid_tot_pct)) +
+  geom_boxplot() + 
+  labs(x = NULL, y = "Medicaid Spending \n (% of Budget)") +
+  theme_bw()
+```
+
+```{r}
+ggplot(graphing_data,
+       aes(x = party_control, y = medicaid_tot_pct)) +
+  geom_boxplot() + 
+  labs(x = NULL, y = "Medicaid Spending \n (% of Budget)") +
+  theme_bw() +
+  theme(
+    panel.grid = element_blank()
+  )
+```
+
+
+
+```{r}
+graphing_data <- graphing_data %>%
+  group_by(party_control) %>%
+  summarize(mean_spending = mean(medicaid_tot_pct),
+            SD = sd(medicaid_tot_pct),
+            SE = SD / sqrt(n())) %>%
+  mutate(lower_bound = mean_spending - 1.96 * SE,
+         upper_bound = mean_spending + 1.96 * SE)
+
+graphing_data
+```
+
+```{r}
+ggplot(graphing_data,
+       aes(x = mean_spending,
+           y = party_control)) +
+  geom_point() +
+  geom_errorbarh(aes(xmin = lower_bound,
+                     xmax = upper_bound),
+                 height = 0) +
+  labs(x = "Medicaid Spending \n (% of Budget)",
+       y = NULL) +
+  theme_bw() 
+```
+
