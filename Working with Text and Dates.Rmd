@@ -14,9 +14,11 @@ options(scipen = 999,
 
 # Introduction
 
+So far, we've covered how to transform and shape data to get it into tidy, usable shape and merge with other data. So far, however, we've been working with standard data forms such as numeric variables and categorical text variables. Oftentimes, however, we'll encounter more tricky or complex data forms. This portion of the workshop covers how to deal with two of the most common of these: text data and dates. The tools for cleaning and working with this data that we'll use come from two main packages: **stringr**, for text data, and **lubridate**, for dates.  
+
 To cover these concepts, we're going to introduce a new dataset, `House Tweets.Rda`. This dataset contains the set of tweets authored by U.S. Representatives during the 2020 election year, from January to November. The dataset, which was downloaded directly from Twitter's API, contains the representative's name, their state and district, the date the tweet was posted, and the text of the tweet. 
 
-Let's begin by loading the **tidyverse** package, the dataset, and get started.
+Let's begin by loading the **tidyverse** package and the dataset itself. Now we're ready to get started.
 
 ```{r, warning=FALSE, message=FALSE}
 library(tidyverse)
