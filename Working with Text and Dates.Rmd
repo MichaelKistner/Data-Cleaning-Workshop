@@ -26,7 +26,7 @@ load("Data/House Tweets.Rda")
 
 # String manipulation
 
-Let's begin by covering some of the ways we can manipulate strings using the **stringr** package. One of the most common tasks in data cleaning is dealing with messy text data that needs to be tidied, coerced, or augmented in various ways. While base R contains functions that can accomplish most of the same things, the syntax of **stringr** is more consistent and commands usually behave in more predictable ways.
+Let's begin by covering some of the ways we can manipulate strings using the **stringr** package. One of the most common tasks in data cleaning is dealing with messy text data that needs to be tidied, coerced, or augmented in various ways. While base R contains functions that can accomplish most of the same things, the syntax of **stringr** is more consistent and commands usually behave in more predictable ways. Most importantly, the first argument for almost every *stringr* command is the original character string you want to manipulate or search. In this sense it's similar to other **tidyverse** where the first argument is the original dataframe you want to manipulate. This is consistent with the principle "start with original, make changes, return a modified version" that the **tidyverse** is built on.  
 
 One of the most basic tasks is combining multiple strings into one. We accomplish this using `str_c()`, short for concatenate string. The function behaves similarly to `paste()` from base R, although it doesn't add any separation between strings unless you explicitly tell it to. For example, suppose we wanted to combine the following two strings describing what we're doing in this notebook:
 
@@ -43,7 +43,7 @@ str_c("Learning how to",
       sep = " ")
 ```
 
-Looks good. Let's examine a more realistic data cleaning task where combining strings comes in handy. Suppose we want to create a `state_district` variable, where the representative's district is written as the two-letter state initial followed by the two-digit district number, separated by a hyphen, which is a common format in dataset. We could write the code below, which combines the `str_c()` command with a `mutate()` to create a new variable in our dataframe. 
+Looks good. Let's examine a more realistic data cleaning task where combining strings comes in handy. Suppose we want to create a `state_district` variable, where the representative's district is written as the two-letter state initial followed by the two-digit district number, separated by a hyphen, which is a common format in dataset. We could write the code below, which combines the `str_c()` command with a `mutate()` to create a new `state_district()` variable in our dataframe.
 
 ```{r}
 house_tweets <- house_tweets %>%
@@ -53,27 +53,36 @@ house_tweets %>%
   select(name, state, district, state_district)
 ```
 
+The new variable is close to what we want, with one problem. For single disitrict districts, we're missing a leading 0. For example, for New York's 1st Congressional district, we want the `state_district` variable to read "NY-01" rather than "NY-1". We can address this problem using the `str_pad()` command. `str_pad()` allows us to specifiy how many characters a particular string should be, and "pad" it with additional characters if it's too short. To use the command, we just need to specify how many characters the string should be, what we want to pad short strings with (in our case, a 0), and which side to add the extra characters to. The code below uses the `str_pad()` command on the `district` variable first, before combining it with the two-letter state abbreviation to create the desired `state_district()` variable.
+
 ```{r}
 house_tweets <- house_tweets %>% 
   mutate(district_full = str_pad(district, 
-                                 width = 2, 
-                                 side = "left",
-                                 pad = "0"),
+                                 width = 2,
+                                 pad = "0", 
+                                 side = "left"),
          state_district = str_c(state, district_full, sep = "-"))
 
 house_tweets %>%
   select(name, state, district_full, state_district)
 ```
 
+We can also accomplish the opposite task of concatenating string, splitting them. In some datasets, for example, we'll have the combined state and district variable, but no separate variable for the district number or state abbreviations by themselves. We can accomplish this using the `str_split()` command.
+
 ```{r}
-str_split(house_tweets$state_district, "-", simplify = TRUE)
+str_split(house_tweets$state_district, 
+          pattern = "-", 
+          simplify = TRUE)
 ```
+The command requires us to specify the variable containing the string we're splitting and the character pattern we're splitting on. The optional argument `simplify = TRUE` simply tells the command to return the results as a matrix, since the result is not a simple vector (in this case, we have two vectors of results). The default of the command is to return the results as a list unless told otherwise.
+
+An alternative way of accomplishing the same result would be to use the `str_sub()` command.^[A common theme when working with text data is that there are multiple ways to get to the same point. This is worth remembering if a particular approach is causing problems, as thorny text manipulation problems often do. Step back, and consider alternative methods.] The `str_sub` command allows you to pull out a subset of a larger string based on the position of characters. After specifiny the original string, we need to tell the command which character to begin with and which character to end with. For example, to return the state abbreviation, we would want the 1st through 2nd characters of the `state_district` variable. To get the district number, we'd want the 4th through 5th.
 
 ```{r}
 str_sub(house_tweets$state_district, 1, 2)
 str_sub(house_tweets$state_district, 4, 5)
 ```
-
+Another common string manipulation problem that emerges occurs when strings are not in the correct case. For example, perhaps the state abbreviation in one dataset is capitalized while it's not in another dataset that you want to merge with. Moving between capitalization schemes is easy with **stringr**. The `str_to_lower()` command converts the entire string to lowercase (while `str_upper()`) does the inverse). The `str_to_title()` and `str_to_sentence()` commands convert strings to title and sentence case, respectively. If we wanted to change the capitalization of our name variable, for instance, we could use these commands in conjunction with `mutate()` as follows: 
 
 ```{r}
 house_tweets %>%
@@ -82,48 +91,88 @@ house_tweets %>%
   select(name, name_lower, name_title)
 ```
 
-# Regular expressions
+# Using regular expressions
+
+So far we've been dealing with relatively simple text to match and manipulate. Oftentimes, however, we need to be more precise and flexible about matching certain text. The way we accomplish this in R (and other forms of programming) is using **regular expressions**. Regular expressions are a concise language for describing patterns in strings. To illustrate a (small) portion of what we can accomplish using regular expressions, we'll use the `str_view` command, which will highlight which portions of a string are being matched by different regular expressions. The `str_view()` command isn't very useful outside of pedagogical purposes, but is quite helpful in understanding what's going on when we're using regex in various ways.
+
+Let's begin by selecting an example tweet to use for text.
 
 ```{r}
 the_tweet <- house_tweets$text[str_detect(house_tweets$text, "Sasquatch") & str_detect(house_tweets$text, "SpongeBob")]
-```
 
-```{r}
 the_tweet
 ```
+
+This lovely text, authored by Mark Pocan of Wisconsin, was written in reply to Kanye West declaring his candidacy for presidency in July of 2020. 
+
+Let's begin with the simplest regex, just using the exact set of characters we want to match. If we were to search for a certain cartoon character who lives in a pineapple under the sea, we could use the following: 
 
 ```{r}
 str_view(the_tweet, "SpongeBob")
 ```
+
+The highlighted text shows that SpongeBob is matched in it's entirety, while no other portions of the string are.
+
+Be careful, however. Without any additional arguments, regex requires that a match be exact in terms of capitalization (and of course, spelling). If were to search for a lowercase version of our aquatic friend, we would strike out. 
+
 ```{r}
 str_view(the_tweet, "spongebob")
 ```
 
-```{r}
-str_view(the_tweet, "Sponge...")
-```
-```{r}
-str_view(the_tweet, "\\.")
-```
-```{r}
-str_view_all(the_tweet, "\\.")
-```
-
-```{r}
-str_view_all(the_tweet, "\\d")
-str_view_all(the_tweet, "\\s")
-```
-
+The real power in regular expression comes from the special characters and other tools that come along with it. Let's look at one such tool. If we want to match on multiple possible characters, we can enclose them in square brackets. For instance, to match any a's or b's in the tweet, we could do the following:
 
 ```{r}
 str_view_all(the_tweet, "[ab]")
 ```
 
+This provides one solution to the capitalization problem above. If we're not sure how "SpongeBob" might be capitalized in the tweet, we could use the following regular expression:
+
 ```{r}
-house_tweets %>% 
-  filter(str_detect(text, "Loch Ness")) %>%
-  select(text)
+str_view(the_tweet, "[Ss]ponge[Bb]ob")
 ```
+
+Another example of a powerful regular expressio tool is the period. A . can be used to match any character -- it's the wildcard of regular expressions. If we type the following, we'll get the same match as above:
+
+```{r}
+str_view(the_tweet, "Sponge...")
+```
+
+This brings up a question -- if . matches anything, how would we match an actual period in a sentence? We can accomplish that by using two backslashes before the period, which indicates that we want to search for the punctuation mark.
+
+```{r}
+str_view(the_tweet, "\\.")
+```
+
+The above example brings up another issue. What if we want to match multiple expressions in a string? Typically, when using regex and **stringr** commands, the regex will only match the first instance, unless we append the **stringr** commands with `_all`. If we wanted to match *every* period in the tweet above, we could do the following:
+
+```{r}
+str_view_all(the_tweet, "\\.")
+```
+
+Some other special characters that are useful: using "\\d" matches any digit, as does the enclosing 0-9 in square brackets. Thus we have:
+
+```{r}
+str_view_all(the_tweet, "\\d")
+str_view_all(the_tweet, "[0-9]")
+```
+
+Non-digit alphabetic characters can be matched using "\\w" or "[a-z]|[A-Z]". The latter takes advantage of the fact that | acts as an OR operator in regex, similar to how it functions in R.
+
+```{r}
+str_view_all(the_tweet, "\\w")
+str_view_all(the_tweet, "[a-z]|[A-Z]")
+```
+Finally, whitespace can be matched using "\\s"
+
+```{r}
+str_view_all(the_tweet, "\\s")
+```
+
+This is just the tip of the iceberg in terms of regular expressions, which also include things such as quantifiers (how many of a pattern should you allow?), anchors (do you want to only match the beggining of a string? The end?) and much else. Included in the Cheatsheets folder of this project is a **stringr** cheatsheet with a full page on regular expressions. That, and searching CodeOverflow/Google, will be your friends when putting together regular expressions. 
+
+# String detection and subsetting
+
+The payoff to learning regular expressions is their ability to be used in conjunction with **stringr** commands to search for, subset, and extract text. For example, let's use the `str_detect()` command, which returns a TRUE or FALSE depending on whether a pattern is contained in a particular string, to see if any other members of Congress were tweeting about SpongeBob during this time period.
 
 ```{r}
 house_tweets %>% 
@@ -131,23 +180,47 @@ house_tweets %>%
   select(text)
 ```
 
+In addition to appearing a discussion about the Kanye candidacy, AOC apparently references a SpongeBob meme at some point. Good to know!
+
+What about some of our other friends from the original tweet? Is anyone else tweeting about the Loch Ness monster, for instance?
+
 ```{r}
 house_tweets %>% 
-  filter(str_detect(text, regex("kendrick", ignore_case = TRUE))) %>% View()
+  filter(str_detect(text, "[Ll]och [Nn]ess")) %>%
+  select(text)
+```
+
+Voter fraud as the Loch Ness Monster of the Republican Party -- nice to see such apt use of metaphors by our Congressional friends. 
+
+In these examples, we've been trying to manually get around the requirement for matching capitalization by providing a couple plausible alternatives. However, a more general way of accomplishing this is wrapping the character string we're searching on in the `regex()` command and specifying the argument `ignore_case = TRUE`. Doing so means the regex will ignore capitalization when searching for matches. For instance, to search for all mentions of Kanye West, capitalization ignored, we could do the following:
+
+```{r}
+house_tweets %>% 
+  filter(str_detect(text, regex("kanye west", ignore_case = TRUE))) %>% 
   select(text)
 ```  
+
+Looks like Kanye's more popular than Spongebob or the Loch Ness Monster among this group! 
+
+A related command to `str_detect` is `str_extract`, which returns not just TRUE or FALSE but also provides the matching characters itself. For instance, let's use `str_extract` to pull out all instances of Kanye or Kendrick Lamar being referenced in Congressional tweets, and put the matches into a table to compare.
 
 ```{r}
 house_tweets %>%
   pull(text) %>%
-  str_extract(regex("kanye|kendricklamar|kendrick lamar", ignore_case = TRUE)) %>%
+  str_extract(regex("kanye|kendrick lamar", ignore_case = TRUE)) %>%
   na.exclude() %>%
   table()
 ```
+It appears that members of Congress are bigger fans of Kanye's classic soul-sampling Chicago style than Kendrick's unapologetic West Coast rap.^[Sadly, my efforts to find any references to Lil Wayne in Congressional tweets were in vain.]
+
+One last point to make about what using the `str_extract` command and regex -- this provides a third way to accomplish our goal from above of extracting solely the district number from the `state_district` variable. If we pass the command a regex asking it to match two numeric digits, it returns the following:
 
 ```{r}
-dir("Data")
+house_tweets %>%
+  pull(state_district) %>%
+  str_extract("[0-9][0-9]") 
 ```
+As before, there's more that can be done with the **stringr** package, and I encourage you to look both at the cheatsheet as well as the relevant chapter of "Data Science with R"
 
 # Working with dates
 
